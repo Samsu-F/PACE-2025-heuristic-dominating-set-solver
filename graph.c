@@ -1,0 +1,155 @@
+#include "graph.h"
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <assert.h>
+
+
+
+// helper
+static void _graph_free_vertex_list(Vertex* list_head)
+{
+    Vertex* v = list_head;
+    while(v != NULL) {
+        Vertex* to_free = v;
+        v = v->list_next;
+        if(to_free->neighbors != NULL) {
+            free(to_free->neighbors);
+        }
+        free(to_free);
+    }
+}
+
+// free graph, all of its vertices and their internals
+// g must not be NULL
+void graph_free(Graph* g)
+{
+    assert(g);
+    _graph_free_vertex_list(g->vertices);
+    _graph_free_vertex_list(g->fixed);
+    g->vertices = NULL;
+    g->fixed = NULL;
+    free(g);
+}
+
+
+
+// adds an edge from u to v
+static void _graph_add_directional_edge(Vertex* u, Vertex* v)
+{
+    assert(u != NULL && v != NULL);
+    u->degree++;
+    u->neighbors = realloc(u->neighbors, u->degree * sizeof(Vertex*));
+    if(!u->neighbors) {
+        perror("_graph_add_directional_edge: realloc failed");
+        exit(1);
+    }
+    u->neighbors[u->degree - 1] = v;
+}
+
+static void _graph_add_edge(Vertex* u, Vertex* v)
+{
+    _graph_add_directional_edge(u, v);
+    _graph_add_directional_edge(v, u);
+}
+
+
+
+// caller is responsible for freeing using graph_free(...)
+Graph* graph_parse_stdin(void)
+{
+    Graph* g = calloc(1, sizeof(Graph));
+    if(!g) {
+        return NULL;
+    }
+
+    char c = (char)getchar();
+    while(c == 'c') { // while the first char of a line is 'c', skip that entire line
+        for(c = (char)getchar(); c != '\n'; c = (char)getchar()) { // empty loop
+            assert(c != EOF);
+        }
+        c = (char)getchar(); // get first char of next line
+    }
+    assert(c == 'p'); // first char of the first non-comment line should be a p
+    c = (char)getchar();
+    assert(c == ' ');
+    c = (char)getchar();
+    assert(c == 'd');
+    c = (char)getchar();
+    assert(c == 's');
+    c = (char)getchar();
+    assert(c == ' ');
+
+    uint_fast32_t n, m;
+    scanf("%" SCNuFAST32 " %" SCNuFAST32 "\n", &n, &m); // n and m
+    g->n = n;
+    g->m = m;
+
+    // make a temporary array in order to efficiently access the vertices by their id
+    Vertex** tmp_vertex_arr = calloc(n + 1, sizeof(Vertex*));
+    if(!tmp_vertex_arr) {
+        perror("graph_parse_stdin: allocating temporary array failed");
+        exit(1);
+    }
+    for(size_t i = 1; i < n + 1; i++) {
+        if(!(tmp_vertex_arr[i] = calloc(1, sizeof(Vertex)))) {
+            perror("graph_parse_stdin: allocating memory for a single Vertex failed");
+            exit(1);
+        }
+        tmp_vertex_arr[i]->id = i;
+        tmp_vertex_arr[i]->status = UNDOMINATED;
+    }
+    // link them to for a doubly linked list
+    g->vertices = tmp_vertex_arr[1];
+    for(size_t i = 1; i < n; i++) {
+        tmp_vertex_arr[i]->list_next = tmp_vertex_arr[i + 1];
+        tmp_vertex_arr[i + 1]->list_prev = tmp_vertex_arr[i];
+    }
+
+    // continue parsing
+    for(uint_fast32_t i = 0; i < m; i++) {
+        uint_fast32_t u_id, v_id;
+        if(scanf("\t%" SCNuFAST32 " %" SCNuFAST32 "\n", &u_id, &v_id) != 2) {
+            assert(false);
+        }
+        _graph_add_edge(tmp_vertex_arr[u_id], tmp_vertex_arr[v_id]);
+    }
+
+    free(tmp_vertex_arr);
+    return g;
+}
+
+
+
+// debug function
+// graph_name is optional and can be NULL
+// dominated vertices will green and fixed verticed will be box shaped
+void graph_print_as_dot(Graph* g, const char* graph_name)
+{
+    assert(g);
+    printf("graph %s {", graph_name ? graph_name : "G");
+    for(Vertex* v = g->vertices; v != NULL; v = v->list_next) {
+        printf("\n\t%" PRIuFAST32 "%s", v->id, v->status == DOMINATED ? "[style=filled, fillcolor=green]" : "");
+    }
+    for(Vertex* v = g->fixed; v != NULL; v = v->list_next) {
+        printf("\n\t%" PRIuFAST32 "[shape=box%s]", v->id,
+               v->status == DOMINATED ? ", style=filled, fillcolor=green" : "");
+    }
+    for(Vertex* v = g->vertices; v != NULL; v = v->list_next) {
+        for(uint_fast32_t i = 0; i < v->degree; i++) {
+            Vertex* u = v->neighbors[i];
+            if(u->id >= v->id) { // doesnt matter if we check for >= or <=, we just don't want both directions to be printed
+                printf("\n\t%" PRIuFAST32 " -- %" PRIuFAST32, u->id, v->id);
+            }
+        }
+    }
+    for(Vertex* v = g->fixed; v != NULL; v = v->list_next) {
+        for(uint_fast32_t i = 0; i < v->degree; i++) {
+            Vertex* u = v->neighbors[i];
+            if(u->id >= v->id) { // doesnt matter if we check for >= or <=, we just don't want both directions to be printed
+                printf("\n\t%" PRIuFAST32 " -- %" PRIuFAST32, u->id, v->id);
+            }
+        }
+    }
+    printf("\n}\n");
+}
