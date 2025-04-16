@@ -21,8 +21,9 @@ typedef struct Vertex {
 
 
 typedef struct {
-    uint_fast32_t n;  // number of vertices
-    uint_fast32_t m;  // number of edges
+    uint_fast32_t n; // number of vertices remaining
+    uint_fast32_t m; // number of edges remaining
+    // fixed vertices that were removed from the graph do not count towards n and m
     Vertex* vertices; // list of vertices in the graph
     Vertex* fixed; // list of vertices that are known to be optimal choices for any dominating set
 } Graph;
@@ -43,7 +44,7 @@ Graph* graph_parse_stdin(void);
 // debug function
 // graph_name is optional and can be NULL
 // dominated vertices will green and fixed verticed will be box shaped
-void graph_print_as_dot(Graph* g, const char* graph_name);
+void graph_print_as_dot(Graph* g, bool include_fixed, const char* graph_name);
 
 
 

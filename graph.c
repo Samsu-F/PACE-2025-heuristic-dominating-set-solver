@@ -124,14 +124,14 @@ Graph* graph_parse_stdin(void)
 // debug function
 // graph_name is optional and can be NULL
 // dominated vertices will green and fixed verticed will be box shaped
-void graph_print_as_dot(Graph* g, const char* graph_name)
+void graph_print_as_dot(Graph* g, bool include_fixed, const char* graph_name)
 {
     assert(g);
     printf("graph %s {", graph_name ? graph_name : "G");
     for(Vertex* v = g->vertices; v != NULL; v = v->list_next) {
         printf("\n\t%" PRIuFAST32 "%s", v->id, v->status == DOMINATED ? "[style=filled, fillcolor=green]" : "");
     }
-    for(Vertex* v = g->fixed; v != NULL; v = v->list_next) {
+    for(Vertex* v = g->fixed; include_fixed && v != NULL; v = v->list_next) {
         printf("\n\t%" PRIuFAST32 "[shape=box%s]", v->id,
                v->status == DOMINATED ? ", style=filled, fillcolor=green" : "");
     }
@@ -139,15 +139,15 @@ void graph_print_as_dot(Graph* g, const char* graph_name)
         for(uint_fast32_t i = 0; i < v->degree; i++) {
             Vertex* u = v->neighbors[i];
             if(u->id >= v->id) { // doesnt matter if we check for >= or <=, we just don't want both directions to be printed
-                printf("\n\t%" PRIuFAST32 " -- %" PRIuFAST32, u->id, v->id);
+                printf("\n\t%" PRIuFAST32 " -- %" PRIuFAST32, v->id, u->id);
             }
         }
     }
-    for(Vertex* v = g->fixed; v != NULL; v = v->list_next) {
+    for(Vertex* v = g->fixed; include_fixed && v != NULL; v = v->list_next) {
         for(uint_fast32_t i = 0; i < v->degree; i++) {
             Vertex* u = v->neighbors[i];
             if(u->id >= v->id) { // doesnt matter if we check for >= or <=, we just don't want both directions to be printed
-                printf("\n\t%" PRIuFAST32 " -- %" PRIuFAST32, u->id, v->id);
+                printf("\n\t%" PRIuFAST32 " -- %" PRIuFAST32, v->id, u->id);
             }
         }
     }
