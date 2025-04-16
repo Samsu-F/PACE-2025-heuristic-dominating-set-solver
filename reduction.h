@@ -11,6 +11,7 @@
 
 
 // v has to be a vertex somewhere in the vertex list g->vertices
+// will remove v and may remove some or all neighbors of v, if they become redundant
 void fix_and_remove_vertex(Graph* g, Vertex* v);
 
 

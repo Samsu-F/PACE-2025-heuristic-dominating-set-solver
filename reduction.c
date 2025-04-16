@@ -172,6 +172,7 @@ static void _remove_redundant_neighbors(Graph* g, Vertex* v)
 
 
 // v has to be a vertex somewhere in the vertex list g->vertices
+// will remove v and may remove some or all neighbors of v, if they become redundant
 void fix_and_remove_vertex(Graph* g, Vertex* v)
 {
     assert(g != NULL && v != NULL);
@@ -182,6 +183,38 @@ void fix_and_remove_vertex(Graph* g, Vertex* v)
     _remove_redundant_neighbors(g, v);
     _remove_edges(v);
     _move_to_fixed(g, v);
+}
+
+
+
+// helper function for fix_isol_and_supp_vertices:
+// beginning from search_start, go backwards until finding a vertex that will
+// definitely not be also removed if to_remove is fixed and removed (i.e. a vertex that
+// is not a neighbor of to_remove or has degree >= 5).
+// returns NULL if no such vertex is found.
+static Vertex* _find_safe_list_elem(Vertex* to_remove, Vertex* search_start)
+{
+    for(Vertex* v = search_start; v != NULL; v = v->list_prev) {
+        if(v == to_remove) {
+            continue; // definitely not safe, will be removed
+        }
+        if(v->degree >= 5) {
+            return v;
+        }
+        else {
+            bool not_a_neighbor_of_to_remove = true;
+            for(size_t i = 0; i < v->degree; i++) {
+                if(v->neighbors[i] == to_remove) {
+                    not_a_neighbor_of_to_remove = false;
+                    break;
+                }
+            }
+            if(not_a_neighbor_of_to_remove) {
+                return v;
+            }
+        }
+    }
+    return NULL;
 }
 
 
@@ -199,22 +232,20 @@ size_t fix_isol_and_supp_vertices(Graph* g)
     bool another_loop = true;
     while(another_loop) {
         another_loop = false;
-        for(Vertex* v = g->vertices; v != NULL; v = v->list_next) {
+        Vertex* next;
+        for(Vertex* v = g->vertices; v != NULL; v = next) {
+            next = v->list_next; // save this pointer before v may be removed
             if(v->degree == 0) {
+                next = _find_safe_list_elem(v, v->list_next);
                 fix_and_remove_vertex(g, v);
                 count_fixed++;
                 another_loop = true;
-                break;
             }
             else if(v->degree == 1) {
+                next = _find_safe_list_elem(v->neighbors[0], v->list_next);
                 fix_and_remove_vertex(g, v->neighbors[0]);
                 count_fixed++;
                 another_loop = true;
-                break; // removing u will also remove v (redundant), as well as more vertices.
-                // therefore is is not known which Vertex pointer can still safely be dereferenced
-                // TODO: can only neighbors of u be deleted in the chain reaction? If so, check
-                // if the next vertex is a neighbor of u. If it is, go backwards until a non-neighbor
-                // before continuing
             }
         }
     }
