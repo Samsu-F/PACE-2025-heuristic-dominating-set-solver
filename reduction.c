@@ -230,16 +230,18 @@ size_t fix_isol_and_supp_vertices(Graph* g)
     assert(g != NULL);
     size_t count_fixed = 0;
     bool another_loop = true;
-    while(another_loop) {
+    while(another_loop) { // TODO: even on really sparse graphs, very few additional vertices are found when
+        // re-checking everything, so it might not be worth the computation time. But on the other hand, it
+        // does not take much computation time and even small improvements now could be very benefitial later.
         another_loop = false;
         Vertex* next;
         for(Vertex* v = g->vertices; v != NULL; v = next) {
             next = v->list_next; // save this pointer before v may be removed
             if(v->degree == 0) {
-                next = _find_safe_list_elem(v, v->list_next);
+                // v is an isolated vertex, so next will definitely be safe
                 fix_and_remove_vertex(g, v);
                 count_fixed++;
-                another_loop = true;
+                // fixing and removing v does not affect any other vertex, so no need to re-run
             }
             else if(v->degree == 1) {
                 next = _find_safe_list_elem(v->neighbors[0], v->list_next);
