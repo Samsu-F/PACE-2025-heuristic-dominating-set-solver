@@ -79,14 +79,14 @@ static void _remove_edges(Vertex* v)
 
 
 // v has to be a vertex somewhere in the vertex list g->vertices
-// v has to be adominated vertex
+// v has to be a dominated vertex
 static void _remove_redundant_vertex(Graph* g, Vertex* v)
 {
     assert(v->status == DOMINATED);
     assert(g != NULL && v != NULL);
     g->n--;
-    g->m -= v->degree;
     _remove_from_vertices(g, v);
+    g->m -= v->degree;
     _remove_edges(v);
     free(v);
 }
@@ -112,6 +112,7 @@ static bool _is_redundant_neighbor(Vertex* v, Vertex* u)
         Vertex* x = u->neighbors[0] != v ? u->neighbors[0] : u->neighbors[1];
         Vertex* y = u->neighbors[2] != v ? u->neighbors[2] : u->neighbors[1];
 
+        // TODO: make the following check for common neighbors more efficient, this is O(n^2)
         for(size_t i_y = 0; i_y < y->degree; i_y++) {
             for(size_t i_x = 0; i_x < x->degree; i_x++) {
                 if((x->neighbors[i_x] == y) || (y->neighbors[i_y] == x) || // if x and y are direct neighbors or
@@ -177,10 +178,10 @@ void fix_and_remove_vertex(Graph* g, Vertex* v)
 {
     assert(g != NULL && v != NULL);
     g->n--;
-    g->m -= v->degree;
     v->status = DOMINATED;
     _mark_neighbors_dominated(v);
-    _remove_redundant_neighbors(g, v);
+    _remove_redundant_neighbors(g, v); // will affect v->degree
+    g->m -= v->degree; // must not be done before _remove_redundant_neighbors!
     _remove_edges(v);
     _move_to_fixed(g, v);
 }
@@ -256,6 +257,130 @@ size_t fix_isol_and_supp_vertices(Graph* g)
 
 
 
-// TODO: function for rule 1 of the paper
+// Comparison function for qsort
+static int _compare_Vertex_ptrs(const void* a, const void* b)
+{
+    const Vertex* x = *(const Vertex* const*)a;
+    const Vertex* y = *(const Vertex* const*)b;
+    return (x > y) - (x < y);
+}
+
+
+
+// helper function for rule_1_reduce_vertex.
+// must only be called if the neighbors arrays of both u and v are sorted
+// (by pointer, ascending)
+// returns true iff u is in N1(v), i.e. iff u has any neighbor that is not
+// a neighbor of v.
+static bool _is_in_n1_sorted(Vertex* v, Vertex* u)
+{
+    assert(v != NULL && u != NULL);
+    size_t i_u = 0, i_v = 0;
+    while(i_u < u->degree) {
+        if(i_v >= v->degree) { // reached end of neighbors of v, but still more of u
+            return true;
+        }
+        else if(u->neighbors[i_u] > v->neighbors[i_v]) {
+            i_v++;
+        }
+        else if(u->neighbors[i_u] == v->neighbors[i_v]) {
+            i_u++;
+            i_v++;
+        }
+        // if this point is reached, then u->neighbors[i_u] is not a neighbor of v
+        else if(u->neighbors[i_u] == v) {
+            i_u++;
+        }
+        else {
+            return true;
+        }
+    }
+    return false;
+}
+
+
+
+// must only be called if both arrays are sorted (by pointer, ascending).
+// returns true iff the arrays have no Vertex* in common, apart from v
+static bool _set_intersection_is_empty_sorted(Vertex** arr_a, size_t n_a, Vertex** arr_b, size_t n_b)
+{
+    assert(arr_a != 0 || n_a == 0);
+    assert(arr_b != 0 || n_b == 0);
+    size_t i_a = 0, i_b = 0;
+    while(i_a < n_a && i_b < n_b) {
+        if(arr_a[i_a] < arr_b[i_b]) {
+            i_a++;
+        }
+        else if(arr_a[i_a] > arr_b[i_b]) {
+            i_b++;
+        }
+        else { // arr_a[i_a] == arr_b[i_b]
+            return false;
+        }
+    }
+    return true;
+}
+
+
+
+// function for rule 1 of the paper
+// returns true iff it was reduced
+bool rule_1_reduce_vertex(Graph* g, Vertex* v)
+{
+    assert(g != NULL && v != NULL);
+    if(v->degree == 0) {
+        fix_and_remove_vertex(g, v);
+        return true;
+    }
+    // setup
+    Vertex** n1 = calloc(v->degree * 3, sizeof(Vertex*));
+    if(!n1) {
+        perror("rule_1_reduce_vertex: calloc failed");
+        exit(1);
+    }
+    Vertex** n2 = &(n1[v->degree]);
+    Vertex** n3 = &(n2[v->degree]);
+    size_t count_n1 = 0, count_n2 = 0, count_n3 = 0;
+    // dividing neighbors into the three sets
+    qsort(v->neighbors, v->degree, sizeof(Vertex*), _compare_Vertex_ptrs);
+    for(size_t i = 0; i < v->degree; i++) {
+        Vertex* u = v->neighbors[i];
+        qsort(u->neighbors, u->degree, sizeof(Vertex*), _compare_Vertex_ptrs);
+        if(_is_in_n1_sorted(v, u)) {
+            n1[count_n1++] = u;
+        }
+        else {
+            n2[count_n2++] = u; // for now put in n2, decide later if it is n2 or n3
+        }
+    }
+    for(size_t i = 0; i < count_n2; i++) {
+        Vertex* u = n2[i];
+        // already dominated vertices have to be in N1 or N2
+        if(u->status == UNDOMINATED && _set_intersection_is_empty_sorted(u->neighbors, u->degree, n1, count_n1)) {
+            n3[count_n3++] = u;
+            n2[i] = n2[count_n2 - 1]; // move the last elem here
+            count_n2--;
+            i--; // stay here to handle the newly moved elem next
+        }
+    }
+    if(count_n3 > 0) {
+        // v can be rule-1-reduced, now do it
+        for(size_t i = 0; i < count_n2; i++) {
+            n2[i]->status = DOMINATED; // not REALLY necessary but for the assertion
+            _remove_redundant_vertex(g, n2[i]);
+        }
+        for(size_t i = 0; i < count_n3; i++) {
+            n3[i]->status = DOMINATED;
+            _remove_redundant_vertex(g, n3[i]);
+        }
+        fix_and_remove_vertex(g, v);
+        free(n1);
+        return true;
+    }
+    free(n1);
+    return false;
+}
+
+
 
 // TODO: function for rule 2 of the paper
