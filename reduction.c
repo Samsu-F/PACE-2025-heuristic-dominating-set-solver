@@ -277,7 +277,10 @@ static bool _is_in_n1_sorted(Vertex* v, Vertex* u)
     assert(v != NULL && u != NULL);
     size_t i_u = 0, i_v = 0;
     while(i_u < u->degree) {
-        if(i_v >= v->degree) { // reached end of neighbors of v, but still more of u
+        if(u->neighbors[i_u] == v) {
+            i_u++;
+        }
+        else if(i_v >= v->degree) { // reached end of neighbors of v, but still more of u
             return true;
         }
         else if(u->neighbors[i_u] > v->neighbors[i_v]) {
@@ -288,9 +291,6 @@ static bool _is_in_n1_sorted(Vertex* v, Vertex* u)
             i_v++;
         }
         // if this point is reached, then u->neighbors[i_u] is not a neighbor of v
-        else if(u->neighbors[i_u] == v) {
-            i_u++;
-        }
         else {
             return true;
         }
@@ -329,7 +329,21 @@ bool rule_1_reduce_vertex(Graph* g, Vertex* v)
 {
     assert(g != NULL && v != NULL);
     if(v->degree == 0) {
-        fix_and_remove_vertex(g, v);
+        if(v->status == UNDOMINATED) {
+            fix_and_remove_vertex(g, v);
+        }
+        else {
+            _remove_redundant_vertex(g, v);
+        }
+        return true;
+    }
+    if(v->degree == 1) {
+        if(v->status == UNDOMINATED) {
+            fix_and_remove_vertex(g, v->neighbors[0]);
+        }
+        else {
+            _remove_redundant_vertex(g, v);
+        }
         return true;
     }
     // setup
