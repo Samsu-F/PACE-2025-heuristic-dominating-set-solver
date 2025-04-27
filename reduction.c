@@ -158,10 +158,6 @@ static void _remove_redundant_neighbors(Graph* g, Vertex* v)
 {
     assert(g != NULL && v != NULL);
     for(size_t i = 0; i < v->degree; i++) {
-        for(size_t j = 0; j < v->degree; j++) {
-        }
-        for(size_t j = 0; j < v->degree; j++) {
-        }
         Vertex* u = v->neighbors[i];
         if(_is_redundant_neighbor(v, u)) {
             _remove_redundant_vertex(g, u);
@@ -239,16 +235,27 @@ size_t fix_isol_and_supp_vertices(Graph* g)
         for(Vertex* v = g->vertices; v != NULL; v = next) {
             next = v->list_next; // save this pointer before v may be removed
             if(v->degree == 0) {
-                // v is an isolated vertex, so next will definitely be safe
-                fix_and_remove_vertex(g, v);
-                count_fixed++;
-                // fixing and removing v does not affect any other vertex, so no need to re-run
+                if(v->status == UNDOMINATED) {
+                    // v is an isolated vertex, so next will definitely be safe
+                    fix_and_remove_vertex(g, v);
+                    count_fixed++;
+                    // fixing and removing v does not affect any other vertex, so no need to re-run
+                }
+                else {
+                    _remove_redundant_vertex(g, v);
+                    assert(false); // if this occurres, then something else went wrong before
+                }
             }
             else if(v->degree == 1) {
-                next = _find_safe_list_elem(v->neighbors[0], v->list_next);
-                fix_and_remove_vertex(g, v->neighbors[0]);
-                count_fixed++;
-                another_loop = true;
+                if(v->status == UNDOMINATED) {
+                    next = _find_safe_list_elem(v->neighbors[0], v->list_next);
+                    fix_and_remove_vertex(g, v->neighbors[0]);
+                    count_fixed++;
+                    another_loop = true;
+                }
+                else {
+                    _remove_redundant_vertex(g, v);
+                }
             }
         }
     }
