@@ -10,12 +10,6 @@
 
 
 
-// v has to be a vertex somewhere in the vertex list g->vertices
-// will remove v and may remove some or all neighbors of v, if they become redundant
-void fix_and_remove_vertex(Graph* g, Vertex* v);
-
-
-
 // iterate over all vertices in the graph, looking for isolated vertices
 // and support vertices (vertices that are the only connection of a leaf).
 // if one is found, fix and remove it, then continue.
@@ -29,6 +23,15 @@ size_t fix_isol_and_supp_vertices(Graph* g);
 // function for rule 1 of the paper
 // returns true iff it was reduced
 bool rule_1_reduce_vertex(Graph* g, Vertex* v);
+
+
+
+
+
+
+//temporary test
+size_t rule_1_reduce(Graph* g);
+
 
 
 

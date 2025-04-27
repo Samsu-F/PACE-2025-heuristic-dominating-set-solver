@@ -7,56 +7,8 @@
 
 
 
-// does the pointer stuff to remove v from the vertices list
-// does not update g->n
-// does not free v or alter any of its data apart from list_next and list_prev
-static void _remove_from_vertices(Graph* g, Vertex* v)
-{
-    assert(g != NULL && v != NULL);
-    if(v->list_prev == NULL) { // if it is the head of the list
-        g->vertices = v->list_next;
-    }
-    else {                                      // not the list head
-        v->list_prev->list_next = v->list_next; // may be NULL
-    }
-    if(v->list_next != NULL) { // if it is not the last list element
-        v->list_next->list_prev = v->list_prev;
-    }
-}
-
-
-
-// does the pointer stuff to move v from the vertices list to the fixed list
-// does not update g->n
-static void _move_to_fixed(Graph* g, Vertex* v)
-{
-    assert(g != NULL && v != NULL);
-    _remove_from_vertices(g, v);
-
-    // add to list of fixed vertices
-    v->list_prev = NULL;
-    v->list_next = g->fixed;
-    if(g->fixed != NULL) {
-        g->fixed->list_prev = v;
-    }
-    g->fixed = v;
-}
-
-
-
-static void _mark_neighbors_dominated(Vertex* v)
-{
-    assert(v != NULL);
-    for(size_t i = 0; i < v->degree; i++) {
-        Vertex* u = v->neighbors[i];
-        u->status = DOMINATED;
-    }
-}
-
-
-
 // removes all edges of v in both directions, and frees the then empty neighbors array of v
-static void _remove_edges(Vertex* v)
+static void _remove_edges(Graph* g, Vertex* v)
 {
     assert(v != NULL);
     for(size_t i_v = 0; i_v < v->degree; i_v++) {
@@ -71,6 +23,7 @@ static void _remove_edges(Vertex* v)
             // this assertion would fail if v has an edge to any u which does not have an edge to v
         }
     }
+    g->m -= v->degree;
     v->degree = 0;
     free(v->neighbors);
     v->neighbors = NULL;
@@ -78,17 +31,51 @@ static void _remove_edges(Vertex* v)
 
 
 
-// v has to be a vertex somewhere in the vertex list g->vertices
-// v has to be a dominated vertex
-static void _remove_redundant_vertex(Graph* g, Vertex* v)
+// Removes the vertex from the graph, including deleting its edges and updating g->n and g->m.
+// This function does however not free v and does not delete it from the doubly linked vertex list, so
+// one can call this function on v and still iterate on the list using v->list_next and v->list_prev normally afterwards.
+static void _mark_vertex_removed(Graph* g, Vertex* v)
 {
-    assert(v->status == DOMINATED);
-    assert(g != NULL && v != NULL);
+    assert(v != NULL);
     g->n--;
-    _remove_from_vertices(g, v);
-    g->m -= v->degree;
-    _remove_edges(v);
+    v->status = REMOVED;
+    _remove_edges(g, v);
+}
+
+
+
+// does the pointer stuff to delete v from the vertices list and frees it afterwards
+// does not update g->n
+// must be called on a vertex only if it has beed marked removed using _mark_vertex_removed before
+static void _delete_and_free_vertex(Graph* g, Vertex* v)
+{
+    assert(g != NULL && v != NULL);
+    if(v->status != REMOVED) {
+        assert(false);
+        _mark_vertex_removed(g, v);
+    }
+    if(v->list_prev == NULL) { // if it is the head of the list
+        g->vertices = v->list_next;
+    }
+    else {                                      // not the list head
+        v->list_prev->list_next = v->list_next; // may be NULL
+    }
+    if(v->list_next != NULL) { // if it is not the last list element
+        v->list_next->list_prev = v->list_prev;
+    }
+    assert(v->neighbors == NULL);
     free(v);
+}
+
+
+
+static void _mark_neighbors_dominated(Vertex* v)
+{
+    assert(v != NULL);
+    for(size_t i = 0; i < v->degree; i++) {
+        Vertex* u = v->neighbors[i];
+        u->status = DOMINATED;
+    }
 }
 
 
@@ -160,7 +147,7 @@ static void _remove_redundant_neighbors(Graph* g, Vertex* v)
     for(size_t i = 0; i < v->degree; i++) {
         Vertex* u = v->neighbors[i];
         if(_is_redundant_neighbor(v, u)) {
-            _remove_redundant_vertex(g, u);
+            _mark_vertex_removed(g, u);
             i--; // removing u causes this array of neighbors of v to change
         }
     }
@@ -168,50 +155,38 @@ static void _remove_redundant_neighbors(Graph* g, Vertex* v)
 
 
 
-// v has to be a vertex somewhere in the vertex list g->vertices
-// will remove v and may remove some or all neighbors of v, if they become redundant
-void fix_and_remove_vertex(Graph* g, Vertex* v)
+// creates a new Vertex holding id and inserts it at the start of g's fixed list
+static void _add_id_to_fixed(Graph* g, uint_fast32_t id)
 {
-    assert(g != NULL && v != NULL);
-    g->n--;
+    Vertex* v = malloc(sizeof(Vertex));
+    if(!v) {
+        perror("_add_id_to_fixed: malloc failed");
+        exit(1);
+    }
+    v->id = id;
+    v->neighbors = NULL;
+    v->degree = 0;
     v->status = DOMINATED;
-    _mark_neighbors_dominated(v);
-    _remove_redundant_neighbors(g, v); // will affect v->degree
-    g->m -= v->degree; // must not be done before _remove_redundant_neighbors!
-    _remove_edges(v);
-    _move_to_fixed(g, v);
+
+    v->list_prev = NULL;
+    v->list_next = g->fixed;
+    if(g->fixed != NULL) {
+        g->fixed->list_prev = v;
+    }
+    g->fixed = v;
 }
 
 
 
-// helper function for fix_isol_and_supp_vertices:
-// beginning from search_start, go backwards until finding a vertex that will
-// definitely not be also removed if to_remove is fixed and removed (i.e. a vertex that
-// is not a neighbor of to_remove or has degree >= 5).
-// returns NULL if no such vertex is found.
-static Vertex* _find_safe_list_elem(Vertex* to_remove, Vertex* search_start)
+// v has to be a vertex somewhere in the vertex list g->vertices
+// will mark v as removed and may mark some or all neighbors of v as removed, if they become redundant
+static void _fix_vertex_and_mark_removed(Graph* g, Vertex* v)
 {
-    for(Vertex* v = search_start; v != NULL; v = v->list_prev) {
-        if(v == to_remove) {
-            continue; // definitely not safe, will be removed
-        }
-        if(v->degree >= 5) {
-            return v;
-        }
-        else {
-            bool not_a_neighbor_of_to_remove = true;
-            for(size_t i = 0; i < v->degree; i++) {
-                if(v->neighbors[i] == to_remove) {
-                    not_a_neighbor_of_to_remove = false;
-                    break;
-                }
-            }
-            if(not_a_neighbor_of_to_remove) {
-                return v;
-            }
-        }
-    }
-    return NULL;
+    assert(g != NULL && v != NULL);
+    _add_id_to_fixed(g, v->id);
+    _mark_neighbors_dominated(v);
+    _remove_redundant_neighbors(g, v); // will affect v->degree
+    _mark_vertex_removed(g, v);
 }
 
 
@@ -233,28 +208,34 @@ size_t fix_isol_and_supp_vertices(Graph* g)
         another_loop = false;
         Vertex* next;
         for(Vertex* v = g->vertices; v != NULL; v = next) {
-            next = v->list_next; // save this pointer before v may be removed
+            next = v->list_next; // save this pointer before v may be freed
+            if(v->status == REMOVED) {
+                _delete_and_free_vertex(g, v);
+                continue;
+            }
             if(v->degree == 0) {
                 if(v->status == UNDOMINATED) {
                     // v is an isolated vertex, so next will definitely be safe
-                    fix_and_remove_vertex(g, v);
+                    _fix_vertex_and_mark_removed(g, v);
                     count_fixed++;
-                    // fixing and removing v does not affect any other vertex, so no need to re-run
                 }
                 else {
-                    _remove_redundant_vertex(g, v);
                     assert(false); // if this occurres, then something else went wrong before
+                    _mark_vertex_removed(g, v);
                 }
+                // since deg(v)=0, fixing and removing v does not affect any other vertex, so we can delete and free immediately,
+                // potentially avoiding a re-run. Only possible since v->list_next has already been saved.
+                _delete_and_free_vertex(g, v);
             }
             else if(v->degree == 1) {
                 if(v->status == UNDOMINATED) {
-                    next = _find_safe_list_elem(v->neighbors[0], v->list_next);
-                    fix_and_remove_vertex(g, v->neighbors[0]);
-                    count_fixed++;
+                    _fix_vertex_and_mark_removed(g, v->neighbors[0]);
                     another_loop = true;
+                    count_fixed++;
                 }
                 else {
-                    _remove_redundant_vertex(g, v);
+                    _mark_vertex_removed(g, v);
+                    another_loop = true;
                 }
             }
         }
@@ -308,7 +289,7 @@ static bool _is_in_n1_sorted(Vertex* v, Vertex* u)
 
 
 // must only be called if both arrays are sorted (by pointer, ascending).
-// returns true iff the arrays have no Vertex* in common, apart from v
+// returns true iff the arrays have no Vertex* in common
 static bool _set_intersection_is_empty_sorted(Vertex** arr_a, size_t n_a, Vertex** arr_b, size_t n_b)
 {
     assert(arr_a != 0 || n_a == 0);
@@ -335,24 +316,26 @@ static bool _set_intersection_is_empty_sorted(Vertex** arr_a, size_t n_a, Vertex
 bool rule_1_reduce_vertex(Graph* g, Vertex* v)
 {
     assert(g != NULL && v != NULL);
+    assert(v->status != REMOVED);
     if(v->degree == 0) {
         if(v->status == UNDOMINATED) {
-            fix_and_remove_vertex(g, v);
+            _fix_vertex_and_mark_removed(g, v);
         }
         else {
-            _remove_redundant_vertex(g, v);
+            _mark_vertex_removed(g, v);
         }
         return true;
     }
-    if(v->degree == 1) {
+    if(v->degree == 1) { // handling degree == 1 separately is redundant but might result in a slight speed up. TODO: test
         if(v->status == UNDOMINATED) {
-            fix_and_remove_vertex(g, v->neighbors[0]);
+            _fix_vertex_and_mark_removed(g, v->neighbors[0]);
         }
         else {
-            _remove_redundant_vertex(g, v);
+            _mark_vertex_removed(g, v);
         }
         return true;
     }
+
     // setup
     Vertex** n1 = calloc(v->degree * 3, sizeof(Vertex*));
     if(!n1) {
@@ -388,18 +371,46 @@ bool rule_1_reduce_vertex(Graph* g, Vertex* v)
         // v can be rule-1-reduced, now do it
         for(size_t i = 0; i < count_n2; i++) {
             n2[i]->status = DOMINATED; // not REALLY necessary but for the assertion
-            _remove_redundant_vertex(g, n2[i]);
+            _mark_vertex_removed(g, n2[i]);
         }
         for(size_t i = 0; i < count_n3; i++) {
             n3[i]->status = DOMINATED;
-            _remove_redundant_vertex(g, n3[i]);
+            _mark_vertex_removed(g, n3[i]);
         }
-        fix_and_remove_vertex(g, v);
+        _fix_vertex_and_mark_removed(g, v);
         free(n1);
         return true;
     }
     free(n1);
     return false;
+}
+
+
+
+//temporary test
+size_t rule_1_reduce(Graph* g)
+{
+    size_t count_fixed = 0;
+    bool another_loop = true;
+    while(another_loop) { // TODO: even on really sparse graphs, very few additional vertices are found when
+        // re-checking everything, so it might not be worth the computation time. But on the other hand, it
+        // does not take much computation time and even small improvements now could be very benefitial later.
+        another_loop = false;
+        Vertex* next;
+        for(Vertex* v = g->vertices; v != NULL; v = next) {
+            next = v->list_next;
+            if(v->status == REMOVED) {
+                _delete_and_free_vertex(g, v);
+                continue;
+            }
+            if(rule_1_reduce_vertex(g, v)) {
+                another_loop = true;
+                count_fixed++;
+            }
+        }
+    }
+    fprintf(stderr, "rule_1_reduce: count_fixed = %zu\n", count_fixed);
+    return count_fixed;
 }
 
 

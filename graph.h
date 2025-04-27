@@ -7,7 +7,7 @@
 
 
 
-typedef enum { UNDOMINATED, DOMINATED } Status;
+typedef enum { UNDOMINATED, DOMINATED, REMOVED } Status;
 
 
 typedef struct Vertex {
