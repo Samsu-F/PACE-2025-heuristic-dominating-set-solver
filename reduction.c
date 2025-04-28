@@ -1,6 +1,7 @@
 #include "reduction.h"
 
 #include <stdlib.h>
+#include <string.h>
 #include <assert.h>
 
 #include <stdio.h> // DEBUG
@@ -83,74 +84,63 @@ static void _mark_neighbors_dominated(Vertex* v)
 // checks if conditions of at least one of the "extra rules" on page 22 of the paper applies.
 // returning false does not necessarily mean it cannot be removed, but that the simple rules do not
 // imply that it is redundant.
-// v: the vertex that will be fixed and removed
-// u: the vertex to check if it becomes redundant and can also be removed
-static bool _is_redundant_neighbor(Vertex* v, Vertex* u)
+// u: the vertex to check if has become redundant and can also be removed
+static bool _is_redundant(Vertex* u)
 {
-    // important: this function is called before removing v from the graph, therefore the
-    // degree of u is still 1 higher than it will be. Thus, the degrees here are by one greater
-    // than the ones in the paper.
-    if(u->degree <= 2) { // extra rule (1): delete a white vertex of degree zero or one
+    assert(u && u->status == DOMINATED);
+    size_t count_undominated_neighbors = 0;
+    Vertex** undominated_neighbors = malloc(u->degree * sizeof(Vertex*));
+    if(!undominated_neighbors) {
+        perror("_is_redundant: malloc failed");
+        exit(1);
+    }
+    for(size_t i = 0; i < u->degree; i++) {
+        if(u->neighbors[i]->status == UNDOMINATED) {
+            undominated_neighbors[count_undominated_neighbors++] = u->neighbors[i];
+        }
+    }
+
+    if(count_undominated_neighbors <= 1) { // extra rule (1): delete a white vertex of degree zero or one
+        free(undominated_neighbors);
         return true;
     }
     // extra rule (2): delete a white vertex of degree two if its neighbors are at
     // distance at most two from each other (after the the removal of v)
-    if(u->degree == 3) {
-        Vertex* x = u->neighbors[0] != v ? u->neighbors[0] : u->neighbors[1];
-        Vertex* y = u->neighbors[2] != v ? u->neighbors[2] : u->neighbors[1];
+    else if(count_undominated_neighbors == 2) {
+        Vertex* x = undominated_neighbors[0];
+        Vertex* y = undominated_neighbors[1];
 
         // TODO: make the following check for common neighbors more efficient, this is O(n^2)
         for(size_t i_y = 0; i_y < y->degree; i_y++) {
             for(size_t i_x = 0; i_x < x->degree; i_x++) {
                 if((x->neighbors[i_x] == y) || (y->neighbors[i_y] == x) || // if x and y are direct neighbors or
-                   (x->neighbors[i_x] == y->neighbors[i_y] && x->neighbors[i_x] != u &&
-                    x->neighbors[i_x] != u)) { // if they have a common neighbor apart from  u and v
+                   (x->neighbors[i_x] == y->neighbors[i_y] && x->neighbors[i_x] != u)) { // if they have a common neighbor apart from u
+                    free(undominated_neighbors);
                     return true;
                 }
             }
         }
     }
     // extra rule (3): delete a white vertex of degree three if the subgraph induced by its neighbors is connected.
-    if(u->degree == 4) {
-        Vertex* neighbors[3];
-        for(size_t i = 0, i_neigh = 0; i < u->degree; i++) {
-            if(u->neighbors[i] != v) {
-                neighbors[i_neigh++] = u->neighbors[i];
-            }
-        } // now neighbors is filled with the neighbors of u that are not v
-        bool neighbors_connected[3] = {false, false, false}; // to mark which of the vertices in neighbors is connected to at least one of the others
+    else if(count_undominated_neighbors == 3) {
+        bool neighbors_connected[3] = {false, false, false}; // to mark which of the vertices in undominated_neighbors is connected to at least one of the others
         for(size_t i_neigh = 0; i_neigh < 3; i_neigh++) {
-            Vertex* x = neighbors[i_neigh];
+            Vertex* x = undominated_neighbors[i_neigh];
             for(size_t i_x = 0; i_x < x->degree; i_x++) {
                 assert(x->neighbors[i_x] != x); // no self loop
-                if(x->neighbors[i_x] == neighbors[0])
+                if(x->neighbors[i_x] == undominated_neighbors[0])
                     neighbors_connected[0] = true;
-                if(x->neighbors[i_x] == neighbors[1])
+                if(x->neighbors[i_x] == undominated_neighbors[1])
                     neighbors_connected[1] = true;
-                if(x->neighbors[i_x] == neighbors[2])
+                if(x->neighbors[i_x] == undominated_neighbors[2])
                     neighbors_connected[2] = true;
             }
         }
+        free(undominated_neighbors);
         return neighbors_connected[0] && neighbors_connected[1] && neighbors_connected[2];
     }
+    free(undominated_neighbors);
     return false;
-}
-
-
-
-// implements the "extra rules" on page 22 of the paper.
-// v: the vertex that will be fixed and removed.
-// may only be called after marking the neighbors of v as dominated.
-static void _remove_redundant_neighbors(Graph* g, Vertex* v)
-{
-    assert(g != NULL && v != NULL);
-    for(size_t i = 0; i < v->degree; i++) {
-        Vertex* u = v->neighbors[i];
-        if(_is_redundant_neighbor(v, u)) {
-            _mark_vertex_removed(g, u);
-            i--; // removing u causes this array of neighbors of v to change
-        }
-    }
 }
 
 
@@ -185,8 +175,29 @@ static void _fix_vertex_and_mark_removed(Graph* g, Vertex* v)
     assert(g != NULL && v != NULL);
     _add_id_to_fixed(g, v->id);
     _mark_neighbors_dominated(v);
-    _remove_redundant_neighbors(g, v); // will affect v->degree
-    _mark_vertex_removed(g, v);
+
+    if(v->degree != 0) {
+        // save the array of neighbors
+        size_t count_neighbors = v->degree;
+        Vertex** neighbors = malloc(v->degree * sizeof(Vertex*));
+        if(!neighbors) {
+            perror("rule_1_reduce_vertex: calloc failed");
+            exit(1);
+        }
+        memcpy(neighbors, v->neighbors, v->degree * sizeof(Vertex*));
+
+        _mark_vertex_removed(g, v); // after this point, v->degree == 0 and v->neighbors == NULL
+
+        for(size_t i = 0; i < count_neighbors; i++) {
+            if(_is_redundant(neighbors[i])) {
+                _mark_vertex_removed(g, neighbors[i]);
+            }
+        }
+        free(neighbors);
+    }
+    else {
+        _mark_vertex_removed(g, v);
+    }
 }
 
 
@@ -403,7 +414,10 @@ size_t rule_1_reduce(Graph* g)
                 _delete_and_free_vertex(g, v);
                 continue;
             }
-            if(rule_1_reduce_vertex(g, v)) {
+            else if(v->status == DOMINATED && _is_redundant(v)) {
+                _mark_vertex_removed(g, v);
+            }
+            else if(rule_1_reduce_vertex(g, v)) {
                 another_loop = true;
                 count_fixed++;
             }
