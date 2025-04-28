@@ -89,19 +89,17 @@ static bool _is_redundant(Vertex* u)
 {
     assert(u && u->status == DOMINATED);
     size_t count_undominated_neighbors = 0;
-    Vertex** undominated_neighbors = malloc(u->degree * sizeof(Vertex*));
-    if(!undominated_neighbors) {
-        perror("_is_redundant: malloc failed");
-        exit(1);
-    }
+    Vertex* undominated_neighbors[4];
     for(size_t i = 0; i < u->degree; i++) {
         if(u->neighbors[i]->status == UNDOMINATED) {
+            if(count_undominated_neighbors >= 3) { // if this one is the 4th undominated neighbor that was found
+                return false; // there is no check for the case count_undominated_neighbors >= 4 later, so no need to continue
+            }
             undominated_neighbors[count_undominated_neighbors++] = u->neighbors[i];
         }
     }
 
     if(count_undominated_neighbors <= 1) { // extra rule (1): delete a white vertex of degree zero or one
-        free(undominated_neighbors);
         return true;
     }
     // extra rule (2): delete a white vertex of degree two if its neighbors are at
@@ -115,7 +113,6 @@ static bool _is_redundant(Vertex* u)
             for(size_t i_x = 0; i_x < x->degree; i_x++) {
                 if((x->neighbors[i_x] == y) || (y->neighbors[i_y] == x) || // if x and y are direct neighbors or
                    (x->neighbors[i_x] == y->neighbors[i_y] && x->neighbors[i_x] != u)) { // if they have a common neighbor apart from u
-                    free(undominated_neighbors);
                     return true;
                 }
             }
@@ -136,10 +133,8 @@ static bool _is_redundant(Vertex* u)
                     neighbors_connected[2] = true;
             }
         }
-        free(undominated_neighbors);
         return neighbors_connected[0] && neighbors_connected[1] && neighbors_connected[2];
     }
-    free(undominated_neighbors);
     return false;
 }
 
