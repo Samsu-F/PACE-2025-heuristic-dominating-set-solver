@@ -26,8 +26,10 @@ static void _remove_edges(Graph* g, Vertex* v)
     }
     g->m -= v->degree;
     v->degree = 0;
-    free(v->neighbors);
-    v->neighbors = NULL;
+    if(v->neighbors != NULL) {
+        free(v->neighbors);
+        v->neighbors = NULL;
+    }
 }
 
 

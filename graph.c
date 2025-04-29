@@ -6,6 +6,13 @@
 
 
 
+typedef struct Edge {
+    Vertex* a;
+    Vertex* b;
+} Edge;
+
+
+
 // helper
 static void _graph_free_vertex_list(Vertex* list_head)
 {
@@ -34,23 +41,13 @@ void graph_free(Graph* g)
 
 
 
-// adds an edge from u to v
-static void _graph_add_directional_edge(Vertex* u, Vertex* v)
-{
-    assert(u != NULL && v != NULL);
-    u->degree++;
-    u->neighbors = realloc(u->neighbors, u->degree * sizeof(Vertex*));
-    if(!u->neighbors) {
-        perror("_graph_add_directional_edge: realloc failed");
-        exit(1);
-    }
-    u->neighbors[u->degree - 1] = v;
-}
-
+// may only be called if the allocated space of u->neighbors and v->neighbors is large enough to hold the additional edge
 static void _graph_add_edge(Vertex* u, Vertex* v)
 {
-    _graph_add_directional_edge(u, v);
-    _graph_add_directional_edge(v, u);
+    assert(u != NULL && v != NULL);
+    assert(u->neighbors != NULL && v->neighbors != NULL);
+    u->neighbors[u->degree++] = v;
+    v->neighbors[v->degree++] = u;
 }
 
 
@@ -87,19 +84,21 @@ Graph* graph_parse_stdin(void)
 
     // make a temporary array in order to efficiently access the vertices by their id
     Vertex** tmp_vertex_arr = calloc(n + 1, sizeof(Vertex*));
-    if(!tmp_vertex_arr) {
+    Edge* edges = calloc(m, sizeof(Edge)); // temporary array for the edges
+    size_t* degrees = calloc(n + 1, sizeof(size_t)); // temporary array to keep track of the degrees
+    if(tmp_vertex_arr == NULL || edges == NULL || degrees == NULL) {
         perror("graph_parse_stdin: allocating temporary array failed");
         exit(1);
     }
-    for(size_t i = 1; i < n + 1; i++) {
-        if(!(tmp_vertex_arr[i] = calloc(1, sizeof(Vertex)))) {
+    for(size_t id = 1; id < n + 1; id++) {
+        if(!(tmp_vertex_arr[id] = calloc(1, sizeof(Vertex)))) {
             perror("graph_parse_stdin: allocating memory for a single Vertex failed");
             exit(1);
         }
-        tmp_vertex_arr[i]->id = i;
-        tmp_vertex_arr[i]->status = UNDOMINATED;
+        tmp_vertex_arr[id]->id = id; // initialize all non-zero data of the vertex
+        tmp_vertex_arr[id]->status = UNDOMINATED;
     }
-    // link them to for a doubly linked list
+    // link them to form a doubly linked list
     g->vertices = tmp_vertex_arr[1];
     for(size_t i = 1; i < n; i++) {
         tmp_vertex_arr[i]->list_next = tmp_vertex_arr[i + 1];
@@ -112,10 +111,26 @@ Graph* graph_parse_stdin(void)
         if(scanf("\t%" SCNuFAST32 " %" SCNuFAST32 "\n", &u_id, &v_id) != 2) {
             assert(false);
         }
-        _graph_add_edge(tmp_vertex_arr[u_id], tmp_vertex_arr[v_id]);
+        edges[i].a = tmp_vertex_arr[u_id];
+        edges[i].b = tmp_vertex_arr[v_id];
+        degrees[u_id]++;
+        degrees[v_id]++;
+    }
+    for(size_t id = 1; id <= n; id++) {
+        if(degrees[id] > 0) {
+            if(!(tmp_vertex_arr[id]->neighbors = malloc(degrees[id] * sizeof(Vertex*)))) {
+                perror("graph_parse_stdin: allocating neighbors array of a vertex failed");
+                exit(1);
+            }
+        }
+    }
+    for(size_t i = 0; i < m; i++) {
+        _graph_add_edge(edges[i].a, edges[i].b);
     }
 
     free(tmp_vertex_arr);
+    free(edges);
+    free(degrees);
     return g;
 }
 
