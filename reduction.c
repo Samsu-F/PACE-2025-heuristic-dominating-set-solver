@@ -8,6 +8,16 @@
 
 
 
+// Comparison function for qsort
+static int _compare_Vertex_ptrs(const void* a, const void* b)
+{
+    const Vertex* x = *(const Vertex* const*)a;
+    const Vertex* y = *(const Vertex* const*)b;
+    return (x > y) - (x < y);
+}
+
+
+
 // removes all edges of v in both directions, and frees the then empty neighbors array of v
 static void _remove_edges(Graph* g, Vertex* v)
 {
@@ -109,14 +119,25 @@ static bool _is_redundant(Vertex* u)
     else if(count_undominated_neighbors == 2) {
         Vertex* x = undominated_neighbors[0];
         Vertex* y = undominated_neighbors[1];
-
-        // TODO: make the following check for common neighbors more efficient, this is O(n^2)
-        for(size_t i_y = 0; i_y < y->degree; i_y++) {
-            for(size_t i_x = 0; i_x < x->degree; i_x++) {
-                if((x->neighbors[i_x] == y) || (y->neighbors[i_y] == x) || // if x and y are direct neighbors or
-                   (x->neighbors[i_x] == y->neighbors[i_y] && x->neighbors[i_x] != u)) { // if they have a common neighbor apart from u
-                    return true;
+        qsort(x->neighbors, x->degree, sizeof(Vertex*), _compare_Vertex_ptrs);
+        qsort(y->neighbors, y->degree, sizeof(Vertex*), _compare_Vertex_ptrs);
+        size_t i_x = 0, i_y = 0;
+        while(i_x < x->degree && i_y < y->degree) {
+            if((x->neighbors[i_x] == y) || (y->neighbors[i_y] == x)) { // if x and y are direct neighbors
+                return true;
+            }
+            if(x->neighbors[i_x] < y->neighbors[i_y]) {
+                i_x++;
+            }
+            else if(x->neighbors[i_x] > y->neighbors[i_y]) {
+                i_y++;
+            }
+            else { // if x->neighbors[i_x] == y->neighbors[i_y]
+                if(x->neighbors[i_x] != u) {
+                    return true; // x and y have a common neighbor that is not u
                 }
+                i_x++; // if the common neighbor is u
+                i_y++;
             }
         }
     }
@@ -249,16 +270,6 @@ size_t fix_isol_and_supp_vertices(Graph* g)
         }
     }
     return count_fixed;
-}
-
-
-
-// Comparison function for qsort
-static int _compare_Vertex_ptrs(const void* a, const void* b)
-{
-    const Vertex* x = *(const Vertex* const*)a;
-    const Vertex* y = *(const Vertex* const*)b;
-    return (x > y) - (x < y);
 }
 
 
