@@ -9,6 +9,7 @@ CFLAGS = --std=c17 -O3 -W -Wall -Wextra
 PEDANTIC_FLAGS = -Werror -Wpedantic -Wshadow -Wcast-qual -Wstrict-prototypes -Wmissing-prototypes -Wswitch-default -Wcast-align=strict -Wbad-function-cast -Wstrict-overflow=4 -Winline -Wundef -Wnested-externs -Wunreachable-code -Wlogical-op -Wfloat-equal -Wredundant-decls -Wold-style-definition -Wwrite-strings -Wformat=2 -Wconversion -Wno-error=unused-parameter -Wno-error=inline -Wno-error=unreachable-code -Wno-error=unused-function
 SANITIZE_FLAGS = -fanalyzer -fsanitize=address -fsanitize=undefined -fsanitize=leak -fsanitize=integer-divide-by-zero -fsanitize=null -fsanitize=signed-integer-overflow -fsanitize=bounds-strict -fsanitize=alignment -fsanitize=object-size -pg
 RELEASE_FLAGS = -O3 -DNDEBUG
+PROFILE_FLAGS = -p
 
 
 
@@ -57,9 +58,12 @@ pedantic: clean all
 sanitize: PEDANTIC_FLAGS += $(SANITIZE_FLAGS)
 sanitize: pedantic
 
+profile: RELEASE_FLAGS += $(PROFILE_FLAGS)
+profile: release
+
 # Clean up the build files
 clean:
 	rm -rf $(OBJS) $(TARGET)
 	@rmdir --ignore-fail-on-non-empty $(BUILD_DIR) 2>/dev/null || true
 
-.PHONY: all clean pedantic sanitize release
+.PHONY: all clean pedantic sanitize release profile
