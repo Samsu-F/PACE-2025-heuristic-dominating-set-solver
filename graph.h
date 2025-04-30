@@ -17,6 +17,7 @@ typedef struct Vertex {
     size_t degree;             // this is the length of the array neighbors
     struct Vertex** neighbors; // array of pointers to the neighbors
     Status status;             // default is UNDOMINATED
+    bool neighbors_array_is_sorted;
 } Vertex;
 
 

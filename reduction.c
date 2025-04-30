@@ -18,6 +18,17 @@ static int _compare_Vertex_ptrs(const void* a, const void* b)
 
 
 
+static void _sort_neighbors(Vertex* v)
+{
+    assert(v->degree > 0);
+    if(!(v->neighbors_array_is_sorted)) {
+        qsort(v->neighbors, v->degree, sizeof(Vertex*), _compare_Vertex_ptrs);
+        v->neighbors_array_is_sorted = true;
+    }
+}
+
+
+
 // removes all edges of v in both directions, and frees the then empty neighbors array of v
 static void _remove_edges(Graph* g, Vertex* v)
 {
@@ -28,6 +39,7 @@ static void _remove_edges(Graph* g, Vertex* v)
             if(u->neighbors[i_u] == v) {
                 u->neighbors[i_u] = u->neighbors[u->degree - 1]; // move the last arr elem here
                 u->degree--;                                     // shorten the array by one
+                u->neighbors_array_is_sorted = false;
                 break;
             }
             assert(i_u < u->degree - 1); // assert there are more edges if we didn't find it already
@@ -119,8 +131,8 @@ static bool _is_redundant(Vertex* u)
     else if(count_undominated_neighbors == 2) {
         Vertex* x = undominated_neighbors[0];
         Vertex* y = undominated_neighbors[1];
-        qsort(x->neighbors, x->degree, sizeof(Vertex*), _compare_Vertex_ptrs);
-        qsort(y->neighbors, y->degree, sizeof(Vertex*), _compare_Vertex_ptrs);
+        _sort_neighbors(x);
+        _sort_neighbors(y);
         size_t i_x = 0, i_y = 0;
         while(i_x < x->degree && i_y < y->degree) {
             if((x->neighbors[i_x] == y) || (y->neighbors[i_y] == x)) { // if x and y are direct neighbors
@@ -365,10 +377,10 @@ bool rule_1_reduce_vertex(Graph* g, Vertex* v)
     Vertex** n3 = &(n2[v->degree]);
     size_t count_n1 = 0, count_n2 = 0, count_n3 = 0;
     // dividing neighbors into the three sets
-    qsort(v->neighbors, v->degree, sizeof(Vertex*), _compare_Vertex_ptrs);
+    _sort_neighbors(v);
     for(size_t i = 0; i < v->degree; i++) {
         Vertex* u = v->neighbors[i];
-        qsort(u->neighbors, u->degree, sizeof(Vertex*), _compare_Vertex_ptrs);
+        _sort_neighbors(u);
         if(_is_in_n1_sorted(v, u)) {
             n1[count_n1++] = u;
         }
