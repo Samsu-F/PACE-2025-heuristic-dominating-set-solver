@@ -211,7 +211,7 @@ static void _fix_vertex_and_mark_removed(Graph* g, Vertex* v)
         size_t count_neighbors = v->degree;
         Vertex** neighbors = malloc(v->degree * sizeof(Vertex*));
         if(!neighbors) {
-            perror("rule_1_reduce_vertex: calloc failed");
+            perror("_fix_vertex_and_mark_removed: malloc failed");
             exit(1);
         }
         memcpy(neighbors, v->neighbors, v->degree * sizeof(Vertex*));
@@ -368,9 +368,9 @@ bool rule_1_reduce_vertex(Graph* g, Vertex* v)
     }
 
     // setup
-    Vertex** n1 = calloc(v->degree * 3, sizeof(Vertex*));
+    Vertex** n1 = malloc(3 * v->degree * sizeof(Vertex*));
     if(!n1) {
-        perror("rule_1_reduce_vertex: calloc failed");
+        perror("rule_1_reduce_vertex: malloc failed");
         exit(1);
     }
     Vertex** n2 = &(n1[v->degree]);
@@ -401,7 +401,6 @@ bool rule_1_reduce_vertex(Graph* g, Vertex* v)
     if(count_n3 > 0) {
         // v can be rule-1-reduced, now do it
         for(size_t i = 0; i < count_n2; i++) {
-            n2[i]->status = DOMINATED; // not REALLY necessary but for the assertion
             _mark_vertex_removed(g, n2[i]);
         }
         for(size_t i = 0; i < count_n3; i++) {
