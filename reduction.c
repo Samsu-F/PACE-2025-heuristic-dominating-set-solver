@@ -8,27 +8,6 @@
 
 
 
-// Comparison function for qsort
-static int _compare_Vertex_ptrs(const void* a, const void* b)
-{
-    const Vertex* x = *(const Vertex* const*)a;
-    const Vertex* y = *(const Vertex* const*)b;
-    return (x > y) - (x < y);
-}
-
-
-
-static void _sort_neighbors(Vertex* v)
-{
-    assert(v->degree > 0);
-    if(!(v->neighbors_array_is_sorted)) {
-        qsort(v->neighbors, v->degree, sizeof(Vertex*), _compare_Vertex_ptrs);
-        v->neighbors_array_is_sorted = true;
-    }
-}
-
-
-
 // removes all edges of v in both directions, and frees the then empty neighbors array of v
 static void _remove_edges(Graph* g, Vertex* v)
 {
@@ -39,7 +18,6 @@ static void _remove_edges(Graph* g, Vertex* v)
             if(u->neighbors[i_u] == v) {
                 u->neighbors[i_u] = u->neighbors[u->degree - 1]; // move the last arr elem here
                 u->degree--;                                     // shorten the array by one
-                u->neighbors_array_is_sorted = false;
                 break;
             }
             assert(i_u < u->degree - 1); // assert there are more edges if we didn't find it already
@@ -131,25 +109,14 @@ static bool _is_redundant(Vertex* u)
     else if(count_undominated_neighbors == 2) {
         Vertex* x = undominated_neighbors[0];
         Vertex* y = undominated_neighbors[1];
-        _sort_neighbors(x);
-        _sort_neighbors(y);
-        size_t i_x = 0, i_y = 0;
-        while(i_x < x->degree && i_y < y->degree) {
-            if((x->neighbors[i_x] == y) || (y->neighbors[i_y] == x)) { // if x and y are direct neighbors
+        x->neighbor_tag = x->id;
+        for(size_t i_x = 0; i_x < x->degree; i_x++) {
+            x->neighbors[i_x]->neighbor_tag = x->id;
+        }
+        for(size_t i_y = 0; i_y < y->degree; i_y++) {
+            if((y->neighbors[i_y]->neighbor_tag == x->id) && (y->neighbors[i_y] != u)) {
+                // x and y are direct neighbors or they share a common neighbor that is not u
                 return true;
-            }
-            if(x->neighbors[i_x] < y->neighbors[i_y]) {
-                i_x++;
-            }
-            else if(x->neighbors[i_x] > y->neighbors[i_y]) {
-                i_y++;
-            }
-            else { // if x->neighbors[i_x] == y->neighbors[i_y]
-                if(x->neighbors[i_x] != u) {
-                    return true; // x and y have a common neighbor that is not u
-                }
-                i_x++; // if the common neighbor is u
-                i_y++;
             }
         }
     }
