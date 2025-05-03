@@ -176,7 +176,7 @@ static bool _is_redundant(Vertex* u)
 
 
 // creates a new Vertex holding id and inserts it at the start of g's fixed list
-static void _add_id_to_fixed(Graph* g, uint_fast32_t id)
+static void _add_id_to_fixed(Graph* g, size_t id)
 {
     Vertex* v = malloc(sizeof(Vertex));
     if(!v) {

@@ -77,14 +77,21 @@ Graph* graph_parse_stdin(void)
     c = (char)getchar();
     assert(c == ' ');
 
-    uint_fast32_t n, m;
-    scanf("%" SCNuFAST32 " %" SCNuFAST32 "\n", &n, &m); // n and m
+    uintmax_t tmp_n, tmp_m;
+    size_t n, m;
+    scanf("%" SCNuMAX "%" SCNuMAX "\n", &tmp_n, &tmp_m); // n and m
+    if((tmp_n > (uintmax_t)SIZE_MAX) || (tmp_m > (uintmax_t)SIZE_MAX)) {
+        fprintf(stderr, "graph_parse_stdin: size_t is not large enough to hold number of vertices/edges.");
+        exit(1);
+    }
+    n = (size_t)tmp_n;
+    m = (size_t)tmp_m;
     g->n = n;
     g->m = m;
 
     // make a temporary array in order to efficiently access the vertices by their id
     Vertex** tmp_vertex_arr = calloc(n + 1, sizeof(Vertex*));
-    Edge* edges = calloc(m, sizeof(Edge)); // temporary array for the edges
+    Edge* edges = calloc(m, sizeof(Edge));           // temporary array for the edges
     size_t* degrees = calloc(n + 1, sizeof(size_t)); // temporary array to keep track of the degrees
     if(tmp_vertex_arr == NULL || edges == NULL || degrees == NULL) {
         perror("graph_parse_stdin: allocating temporary array failed");
@@ -106,9 +113,9 @@ Graph* graph_parse_stdin(void)
     }
 
     // continue parsing
-    for(uint_fast32_t i = 0; i < m; i++) {
-        uint_fast32_t u_id, v_id;
-        if(scanf("\t%" SCNuFAST32 " %" SCNuFAST32 "\n", &u_id, &v_id) != 2) {
+    for(size_t i = 0; i < m; i++) {
+        size_t u_id, v_id;
+        if(scanf("\t%zu %zu\n", &u_id, &v_id) != 2) {
             assert(false);
         }
         edges[i].a = tmp_vertex_arr[u_id];
@@ -144,25 +151,24 @@ void graph_print_as_dot(Graph* g, bool include_fixed, const char* graph_name)
     assert(g);
     printf("graph %s {", graph_name ? graph_name : "G");
     for(Vertex* v = g->vertices; v != NULL; v = v->list_next) {
-        printf("\n\t%" PRIuFAST32 "%s", v->id, v->status == DOMINATED ? "[style=filled, fillcolor=green]" : "");
+        printf("\n\t%zu%s", v->id, v->status == DOMINATED ? "[style=filled, fillcolor=green]" : "");
     }
     for(Vertex* v = g->fixed; include_fixed && v != NULL; v = v->list_next) {
-        printf("\n\t%" PRIuFAST32 "[shape=box%s]", v->id,
-               v->status == DOMINATED ? ", style=filled, fillcolor=green" : "");
+        printf("\n\t%zu[shape=box%s]", v->id, v->status == DOMINATED ? ", style=filled, fillcolor=green" : "");
     }
     for(Vertex* v = g->vertices; v != NULL; v = v->list_next) {
-        for(uint_fast32_t i = 0; i < v->degree; i++) {
+        for(size_t i = 0; i < v->degree; i++) {
             Vertex* u = v->neighbors[i];
             if(u->id >= v->id) { // doesnt matter if we check for >= or <=, we just don't want both directions to be printed
-                printf("\n\t%" PRIuFAST32 " -- %" PRIuFAST32, v->id, u->id);
+                printf("\n\t%zu -- %zu", v->id, u->id);
             }
         }
     }
     for(Vertex* v = g->fixed; include_fixed && v != NULL; v = v->list_next) {
-        for(uint_fast32_t i = 0; i < v->degree; i++) {
+        for(size_t i = 0; i < v->degree; i++) {
             Vertex* u = v->neighbors[i];
             if(u->id >= v->id) { // doesnt matter if we check for >= or <=, we just don't want both directions to be printed
-                printf("\n\t%" PRIuFAST32 " -- %" PRIuFAST32, v->id, u->id);
+                printf("\n\t%zu -- %zu", v->id, u->id);
             }
         }
     }

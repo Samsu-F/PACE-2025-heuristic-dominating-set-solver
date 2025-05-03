@@ -11,7 +11,7 @@ typedef enum { UNDOMINATED, DOMINATED, REMOVED } Status;
 
 
 typedef struct Vertex {
-    uint_fast32_t id; // the name of the vertex
+    size_t id; // the name of the vertex
     struct Vertex* list_prev;
     struct Vertex* list_next;
     size_t degree;             // this is the length of the array neighbors
@@ -22,8 +22,8 @@ typedef struct Vertex {
 
 
 typedef struct {
-    uint_fast32_t n; // number of vertices remaining
-    uint_fast32_t m; // number of edges remaining
+    size_t n; // number of vertices remaining
+    size_t m; // number of edges remaining
     // fixed vertices that were removed from the graph do not count towards n and m
     Vertex* vertices; // list of vertices in the graph
     Vertex* fixed; // list of vertices that are known to be optimal choices for any dominating set
