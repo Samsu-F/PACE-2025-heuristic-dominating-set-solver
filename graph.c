@@ -104,6 +104,7 @@ Graph* graph_parse_stdin(void)
         }
         tmp_vertex_arr[id]->id = id; // initialize all non-zero data of the vertex
         tmp_vertex_arr[id]->status = UNDOMINATED;
+        tmp_vertex_arr[id]->neighbor_tag = id;
     }
     // link them to form a doubly linked list
     g->vertices = tmp_vertex_arr[1];

@@ -287,30 +287,14 @@ size_t fix_isol_and_supp_vertices(Graph* g)
 
 
 // helper function for rule_1_reduce_vertex.
-// must only be called if the neighbors arrays of both u and v are sorted
-// (by pointer, ascending)
+// must only be called if the neighbor tags of v and any neighbor of v were set to v->id
 // returns true iff u is in N1(v), i.e. iff u has any neighbor that is not
 // a neighbor of v.
-static bool _is_in_n1_sorted(Vertex* v, Vertex* u)
+static bool _is_in_n1(const size_t v_id, const Vertex* const u)
 {
-    assert(v != NULL && u != NULL);
-    size_t i_u = 0, i_v = 0;
-    while(i_u < u->degree) {
-        if(u->neighbors[i_u] == v) {
-            i_u++;
-        }
-        else if(i_v >= v->degree) { // reached end of neighbors of v, but still more of u
-            return true;
-        }
-        else if(u->neighbors[i_u] > v->neighbors[i_v]) {
-            i_v++;
-        }
-        else if(u->neighbors[i_u] == v->neighbors[i_v]) {
-            i_u++;
-            i_v++;
-        }
-        // if this point is reached, then u->neighbors[i_u] is not a neighbor of v
-        else {
+    assert(u != NULL);
+    for(size_t i = 0; i < u->degree; i++) {
+        if(u->neighbors[i]->neighbor_tag != v_id) {
             return true;
         }
     }
@@ -318,26 +302,24 @@ static bool _is_in_n1_sorted(Vertex* v, Vertex* u)
 }
 
 
-
-// must only be called if both arrays are sorted (by pointer, ascending).
-// returns true iff the arrays have no Vertex* in common
-static bool _set_intersection_is_empty_sorted(Vertex** arr_a, size_t n_a, Vertex** arr_b, size_t n_b)
+// helper function for rule_1_reduce_vertex.
+// must only be called if x->neighbor_tag of any neighbor x of v is v_id iff x in N1(v).
+// v->neighbor_tag must be set to any value != v_id before calling this function
+// returns true iff u is in N1(v), i.e. iff u has any neighbor that is not
+// a neighbor of v.
+static bool _is_in_n2(const size_t v_id, const Vertex* const u)
 {
-    assert(arr_a != 0 || n_a == 0);
-    assert(arr_b != 0 || n_b == 0);
-    size_t i_a = 0, i_b = 0;
-    while(i_a < n_a && i_b < n_b) {
-        if(arr_a[i_a] < arr_b[i_b]) {
-            i_a++;
-        }
-        else if(arr_a[i_a] > arr_b[i_b]) {
-            i_b++;
-        }
-        else { // arr_a[i_a] == arr_b[i_b]
-            return false;
+    assert(u != NULL);
+    if(u->status != UNDOMINATED) {
+        return true; // only undominated vertices can be in N3
+    }
+    for(size_t i = 0; i < u->degree; i++) {
+        if(u->neighbors[i]->neighbor_tag == v_id) { // if u has any neighbor that is in N1
+            assert(u->neighbors[i]->id != v_id); // assert the N1 neighbor found is in fact not v itself
+            return true;
         }
     }
-    return true;
+    return false;
 }
 
 
@@ -368,50 +350,58 @@ bool rule_1_reduce_vertex(Graph* g, Vertex* v)
     }
 
     // setup
-    Vertex** n1 = malloc(3 * v->degree * sizeof(Vertex*));
-    if(!n1) {
+    Vertex** n2 = malloc(2 * v->degree * sizeof(Vertex*));
+    if(!n2) {
         perror("rule_1_reduce_vertex: malloc failed");
         exit(1);
     }
-    Vertex** n2 = &(n1[v->degree]);
+    // Vertex** n2 = &(n1[v->degree]);
     Vertex** n3 = &(n2[v->degree]);
-    size_t count_n1 = 0, count_n2 = 0, count_n3 = 0;
-    // dividing neighbors into the three sets
-    _sort_neighbors(v);
+    size_t count_n2 = 0, count_n3 = 0;
+
+    v->neighbor_tag = v->id;
     for(size_t i = 0; i < v->degree; i++) {
         Vertex* u = v->neighbors[i];
-        _sort_neighbors(u);
-        if(_is_in_n1_sorted(v, u)) {
-            n1[count_n1++] = u;
-        }
-        else {
+        u->neighbor_tag = v->id;
+    }
+    for(size_t i_v = 0; i_v < v->degree; i_v++) {
+        Vertex* u = v->neighbors[i_v];
+        if(!(_is_in_n1(v->id, u))) {
+            // not in N1 but still unknown if N2 or N3
             n2[count_n2++] = u; // for now put in n2, decide later if it is n2 or n3
         }
     }
+    // now split N2 and N3
+    // first tag N2 and N3 differently from N1
     for(size_t i = 0; i < count_n2; i++) {
         Vertex* u = n2[i];
-        // already dominated vertices have to be in N1 or N2
-        if(u->status == UNDOMINATED && _set_intersection_is_empty_sorted(u->neighbors, u->degree, n1, count_n1)) {
+        u->neighbor_tag = u->id;
+    }
+    v->neighbor_tag = 0;
+    for(size_t i = 0; i < count_n2; i++) {
+        Vertex* u = n2[i];
+        if(!(_is_in_n2(v->id, u))) {
             n3[count_n3++] = u;
-            n2[i] = n2[count_n2 - 1]; // move the last elem here
-            count_n2--;
-            i--; // stay here to handle the newly moved elem next
+            n2[i] = n2[--count_n2]; // move the last elem here
+            i--;                    // stay here to handle the newly moved elem next
         }
     }
+    v->neighbor_tag = v->id; // ensure it is a valid value at the end
+
+
     if(count_n3 > 0) {
         // v can be rule-1-reduced, now do it
         for(size_t i = 0; i < count_n2; i++) {
             _mark_vertex_removed(g, n2[i]);
         }
         for(size_t i = 0; i < count_n3; i++) {
-            n3[i]->status = DOMINATED;
             _mark_vertex_removed(g, n3[i]);
         }
         _fix_vertex_and_mark_removed(g, v);
-        free(n1);
+        free(n2);
         return true;
     }
-    free(n1);
+    free(n2);
     return false;
 }
 
