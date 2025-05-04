@@ -288,25 +288,37 @@ size_t fix_isol_and_supp_vertices(Graph* g)
 
 // helper function for rule_1_reduce_vertex.
 // must only be called if the neighbor tags of v and any neighbor of v were set to v->id
-// returns true iff u is in N1(v), i.e. iff u has any neighbor that is not
+// returns non-zero iff u is in N1(v), i.e. iff u has any neighbor that is not
 // a neighbor of v.
-static bool _is_in_n1(const size_t v_id, const Vertex* const u)
+// returns 1 iff u is strictly in N1, and returns 2 iff u may be put in N2 because
+// every neighbor of u that is not a neighbor of v is already dominated.
+// However, if this returns 2 for u, then u must NOT be put in N3 because it may still get
+// dominated from the outside neighbor later.
+static int _is_in_n1(const size_t v_id, const Vertex* const u)
 {
     assert(u != NULL);
+    bool dominated_outside_neighbor_found = false;
     for(size_t i = 0; i < u->degree; i++) {
         if(u->neighbors[i]->neighbor_tag != v_id) {
-            return true;
+            if(u->neighbors[i]->status == UNDOMINATED) {
+                return true;
+            }
+            else {
+                dominated_outside_neighbor_found = true;
+            }
         }
     }
-    return false;
+    if(dominated_outside_neighbor_found) {
+        return 2;
+    }
+    return 0;
 }
 
 
 // helper function for rule_1_reduce_vertex.
 // must only be called if x->neighbor_tag of any neighbor x of v is v_id iff x in N1(v).
 // v->neighbor_tag must be set to any value != v_id before calling this function
-// returns true iff u is in N1(v), i.e. iff u has any neighbor that is not
-// a neighbor of v.
+// returns true iff u is in N2(v), i.e. iff u has any neighbor that is in N1(v).
 static bool _is_in_n2(const size_t v_id, const Vertex* const u)
 {
     assert(u != NULL);
@@ -355,7 +367,6 @@ bool rule_1_reduce_vertex(Graph* g, Vertex* v)
         perror("rule_1_reduce_vertex: malloc failed");
         exit(1);
     }
-    // Vertex** n2 = &(n1[v->degree]);
     Vertex** n3 = &(n2[v->degree]);
     size_t count_n2 = 0, count_n3 = 0;
 
@@ -366,9 +377,16 @@ bool rule_1_reduce_vertex(Graph* g, Vertex* v)
     }
     for(size_t i_v = 0; i_v < v->degree; i_v++) {
         Vertex* u = v->neighbors[i_v];
-        if(!(_is_in_n1(v->id, u))) {
-            // not in N1 but still unknown if N2 or N3
-            n2[count_n2++] = u; // for now put in n2, decide later if it is n2 or n3
+        switch(_is_in_n1(v->id, u)) {
+            case 0:
+                // not in N1 but still unknown if N2 or N3
+                n3[count_n3++] = u; // for now put in N3, decide later if it is N2 or N3
+                break;
+            case 2:
+                n2[count_n2++] = u; // may be put in N2 but must not be put in N2
+                break;
+            default: // in N1, nothing to do
+                break;
         }
     }
     // now split N2 and N3
@@ -377,12 +395,16 @@ bool rule_1_reduce_vertex(Graph* g, Vertex* v)
         Vertex* u = n2[i];
         u->neighbor_tag = u->id;
     }
+    for(size_t i = 0; i < count_n3; i++) {
+        Vertex* u = n3[i];
+        u->neighbor_tag = u->id;
+    }
     v->neighbor_tag = 0;
-    for(size_t i = 0; i < count_n2; i++) {
-        Vertex* u = n2[i];
-        if(!(_is_in_n2(v->id, u))) {
-            n3[count_n3++] = u;
-            n2[i] = n2[--count_n2]; // move the last elem here
+    for(size_t i = 0; i < count_n3; i++) {
+        Vertex* u = n3[i];
+        if(_is_in_n2(v->id, u)) {
+            n2[count_n2++] = u;
+            n3[i] = n3[--count_n3]; // move the last elem here
             i--;                    // stay here to handle the newly moved elem next
         }
     }
