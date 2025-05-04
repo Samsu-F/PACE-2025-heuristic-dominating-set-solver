@@ -362,13 +362,13 @@ bool rule_1_reduce_vertex(Graph* g, Vertex* v)
     }
 
     // setup
-    Vertex** n2 = malloc(2 * v->degree * sizeof(Vertex*));
-    if(!n2) {
+    Vertex** n2_only = malloc(2 * v->degree * sizeof(Vertex*)); // block allocation for n2_only and n2_n3_mixed
+    if(!n2_only) {
         perror("rule_1_reduce_vertex: malloc failed");
         exit(1);
     }
-    Vertex** n3 = &(n2[v->degree]);
-    size_t count_n2 = 0, count_n3 = 0;
+    Vertex** n2_n3_mixed = &(n2_only[v->degree]);
+    size_t count_n2_only = 0, count_n2_n3_mixed = 0; // the number of elements in the arrays
 
     v->neighbor_tag = v->id;
     for(size_t i = 0; i < v->degree; i++) {
@@ -380,10 +380,10 @@ bool rule_1_reduce_vertex(Graph* g, Vertex* v)
         switch(_is_in_n1(v->id, u)) {
             case 0:
                 // not in N1 but still unknown if N2 or N3
-                n3[count_n3++] = u; // for now put in N3, decide later if it is N2 or N3
+                n2_n3_mixed[count_n2_n3_mixed++] = u; // for now put it there, decide later if it is N2 or N3
                 break;
             case 2:
-                n2[count_n2++] = u; // may be put in N2 but must not be put in N2
+                n2_only[count_n2_only++] = u; // may be put in N2 but must not be put in N2
                 break;
             default: // in N1, nothing to do
                 break;
@@ -391,39 +391,40 @@ bool rule_1_reduce_vertex(Graph* g, Vertex* v)
     }
     // now split N2 and N3
     // first tag N2 and N3 differently from N1
-    for(size_t i = 0; i < count_n2; i++) {
-        Vertex* u = n2[i];
+    for(size_t i = 0; i < count_n2_only; i++) {
+        Vertex* u = n2_only[i];
         u->neighbor_tag = u->id;
     }
-    for(size_t i = 0; i < count_n3; i++) {
-        Vertex* u = n3[i];
+    for(size_t i = 0; i < count_n2_n3_mixed; i++) {
+        Vertex* u = n2_n3_mixed[i];
         u->neighbor_tag = u->id;
     }
     v->neighbor_tag = 0;
-    for(size_t i = 0; i < count_n3; i++) {
-        Vertex* u = n3[i];
-        if(_is_in_n2(v->id, u)) {
-            n2[count_n2++] = u;
-            n3[i] = n3[--count_n3]; // move the last elem here
-            i--;                    // stay here to handle the newly moved elem next
+    bool n3_not_empty = false;
+    for(size_t i = 0; i < count_n2_n3_mixed; i++) {
+        Vertex* u = n2_n3_mixed[i];
+        if(!(_is_in_n2(v->id, u))) {
+            // we found a vertex that is in N3 ==> N3 is not empty
+            n3_not_empty = true;
+            break; // no need to continue, we only need to know if N3 is empty
         }
     }
     v->neighbor_tag = v->id; // ensure it is a valid value at the end
 
 
-    if(count_n3 > 0) {
+    if(n3_not_empty) {
         // v can be rule-1-reduced, now do it
-        for(size_t i = 0; i < count_n2; i++) {
-            _mark_vertex_removed(g, n2[i]);
+        for(size_t i = 0; i < count_n2_only; i++) {
+            _mark_vertex_removed(g, n2_only[i]);
         }
-        for(size_t i = 0; i < count_n3; i++) {
-            _mark_vertex_removed(g, n3[i]);
+        for(size_t i = 0; i < count_n2_n3_mixed; i++) {
+            _mark_vertex_removed(g, n2_n3_mixed[i]);
         }
         _fix_vertex_and_mark_removed(g, v);
-        free(n2);
+        free(n2_only);
         return true;
     }
-    free(n2);
+    free(n2_only);
     return false;
 }
 
