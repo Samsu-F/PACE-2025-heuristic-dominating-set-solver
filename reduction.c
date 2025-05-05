@@ -219,65 +219,6 @@ static void _fix_vertex_and_mark_removed(Graph* g, Vertex* v)
 
 
 
-// iterate over all vertices in the graph, looking for isolated vertices
-// and support vertices (vertices that are the only connection of a leaf).
-// if one is found, fix and remove it, then continue.
-// returns the number of vertices that were fixed and removed (there could
-// be vertices that were removed, but only the fixed ones – not redundant ones –
-// are counted).
-size_t fix_isol_and_supp_vertices(Graph* g)
-{
-    assert(g != NULL);
-    size_t count_fixed = 0;
-    bool another_loop = true;
-    while(another_loop) { // TODO: even on really sparse graphs, very few additional vertices are found when
-        // re-checking everything, so it might not be worth the computation time. But on the other hand, it
-        // does not take much computation time and even small improvements now could be very benefitial later.
-        another_loop = false;
-        Vertex* next;
-        for(Vertex* v = g->vertices; v != NULL; v = next) {
-            next = v->list_next; // save this pointer before v may be freed
-            if(v->status == REMOVED) {
-                _delete_and_free_vertex(g, v);
-                continue;
-            }
-            else if(v->status == DOMINATED && _is_redundant(v)) {
-                _mark_vertex_removed(g, v);
-                another_loop = true;
-                continue;
-            }
-            if(v->degree == 0) {
-                if(v->status == UNDOMINATED) {
-                    // v is an isolated vertex, so next will definitely be safe
-                    _fix_vertex_and_mark_removed(g, v);
-                    count_fixed++;
-                }
-                else {
-                    assert(false); // if this occurres, then something else went wrong before
-                    _mark_vertex_removed(g, v);
-                }
-                // since deg(v)=0, fixing and removing v does not affect any other vertex, so we can delete and free immediately,
-                // potentially avoiding a re-run. Only possible since v->list_next has already been saved.
-                _delete_and_free_vertex(g, v);
-            }
-            else if(v->degree == 1) {
-                if(v->status == UNDOMINATED) {
-                    _fix_vertex_and_mark_removed(g, v->neighbors[0]);
-                    another_loop = true;
-                    count_fixed++;
-                }
-                else {
-                    _mark_vertex_removed(g, v);
-                    another_loop = true;
-                }
-            }
-        }
-    }
-    return count_fixed;
-}
-
-
-
 // helper function for _rule_1_reduce_vertex.
 // must only be called if the neighbor tags of v and any neighbor of v were set to v->id
 // returns non-zero iff u is in N1(v), i.e. iff u has any neighbor that is not

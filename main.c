@@ -44,7 +44,6 @@ int main(int argc, char* argv[])
     fprintf(stderr, "input:   n = %zu\tm = %zu\n", g->n, g->m);
     clock_t time_reduction_start = clock();
 
-    // fprintf(stderr, "simple: count_fixed = %zu\n", fix_isol_and_supp_vertices(g));
     reduce(g);
 
     clock_t time_reduction_end = clock();
