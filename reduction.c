@@ -241,6 +241,11 @@ size_t fix_isol_and_supp_vertices(Graph* g)
                 _delete_and_free_vertex(g, v);
                 continue;
             }
+            else if(v->status == DOMINATED && _is_redundant(v)) {
+                _mark_vertex_removed(g, v);
+                another_loop = true;
+                continue;
+            }
             if(v->degree == 0) {
                 if(v->status == UNDOMINATED) {
                     // v is an isolated vertex, so next will definitely be safe
