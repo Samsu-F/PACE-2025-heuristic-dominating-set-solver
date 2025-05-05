@@ -426,18 +426,25 @@ static bool _rule_1_reduce_vertex(Graph* g, Vertex* v)
         u->neighbor_tag = u->id;
     }
     v->neighbor_tag = 0;
-    bool n3_not_empty = false;
-    for(size_t i = 0; i < count_n2_n3_mixed; i++) {
-        Vertex* u = n2_n3_mixed[i];
-        if(!(_is_in_n2_rule1(v->id, u))) {
-            // we found a vertex that is in N3 ==> N3 is not empty
-            n3_not_empty = true;
-            break; // no need to continue, we only need to know if N3 is empty
+    bool reduce = false; // the flag that saves if we reduce at the end
+    if((count_n2_only + count_n2_n3_mixed == v->degree) && v->status == UNDOMINATED) {
+        // v needs to be dominated by itself or a neighbor, but all neighbors are at best equally good or worse choices than v
+        reduce = true;
+    }
+    else {
+        // check if N3 is not empty
+        for(size_t i = 0; i < count_n2_n3_mixed; i++) {
+            Vertex* u = n2_n3_mixed[i];
+            if(!(_is_in_n2_rule1(v->id, u))) {
+                // we found a vertex that is in N3 ==> N3 is not empty
+                reduce = true;
+                break; // no need to continue, we only need to know if N3 is empty
+            }
         }
     }
 
 
-    if(n3_not_empty) {
+    if(reduce) {
         // v can be rule-1-reduced, now do it
         for(size_t i = 0; i < count_n2_only; i++) {
             _mark_vertex_removed(g, n2_only[i]);
