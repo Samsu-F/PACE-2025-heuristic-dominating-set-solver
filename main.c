@@ -22,12 +22,12 @@ int main(void)
     clock_t time_reduction_start = clock();
 
     // fprintf(stderr, "simple_reduce: count_fixed = %zu\n", fix_isol_and_supp_vertices(g));
-    rule_1_reduce(g);
+    reduce(g);
 
     clock_t time_reduction_end = clock();
     fprintf(stderr, "  remaining: n = %zu\tm = %zu\n", g->n, g->m);
 
-    graph_print_as_dot(g, true, "Test");
+    graph_print_as_dot(g, false, "Test");
     graph_free(g);
 
 

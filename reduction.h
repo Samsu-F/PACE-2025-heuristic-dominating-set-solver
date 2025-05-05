@@ -20,9 +20,7 @@ size_t fix_isol_and_supp_vertices(Graph* g);
 
 
 
-// function for rule 1 of the paper
-// returns true iff it was reduced
-bool rule_1_reduce_vertex(Graph* g, Vertex* v);
+
 
 
 
@@ -30,7 +28,7 @@ bool rule_1_reduce_vertex(Graph* g, Vertex* v);
 
 
 //temporary test
-size_t rule_1_reduce(Graph* g);
+size_t reduce(Graph* g);
 
 
 

@@ -104,7 +104,6 @@ Graph* graph_parse_stdin(void)
         }
         tmp_vertex_arr[id]->id = id; // initialize all non-zero data of the vertex
         tmp_vertex_arr[id]->status = UNDOMINATED;
-        tmp_vertex_arr[id]->neighbor_tag = id;
     }
     // link them to form a doubly linked list
     g->vertices = tmp_vertex_arr[1];
@@ -146,16 +145,26 @@ Graph* graph_parse_stdin(void)
 
 // debug function
 // graph_name is optional and can be NULL
-// dominated vertices will green and fixed verticed will be box shaped
+// dominated vertices will green, fixed verticed will be cyan, and removed vertices will be red
 void graph_print_as_dot(Graph* g, bool include_fixed, const char* graph_name)
 {
     assert(g);
     printf("graph %s {", graph_name ? graph_name : "G");
     for(Vertex* v = g->vertices; v != NULL; v = v->list_next) {
-        printf("\n\t%zu%s", v->id, v->status == DOMINATED ? "[style=filled, fillcolor=green]" : "");
+        printf("\n\t%zu", v->id);
+        switch(v->status) {
+            case DOMINATED:
+                printf("[style=filled, fillcolor=green]");
+                break;
+            case REMOVED:
+                printf("[style=filled, fillcolor=red]");
+                break;
+            default:
+                break;
+        }
     }
     for(Vertex* v = g->fixed; include_fixed && v != NULL; v = v->list_next) {
-        printf("\n\t%zu[shape=box%s]", v->id, v->status == DOMINATED ? ", style=filled, fillcolor=green" : "");
+        printf("\n\t%zu[style=filled, fillcolor=cyan]", v->id);
     }
     for(Vertex* v = g->vertices; v != NULL; v = v->list_next) {
         for(size_t i = 0; i < v->degree; i++) {

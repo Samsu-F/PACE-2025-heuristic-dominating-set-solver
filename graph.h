@@ -11,14 +11,15 @@ typedef enum { UNDOMINATED, DOMINATED, REMOVED } Status;
 
 
 typedef struct Vertex {
-    size_t id; // the name of the vertex
+    size_t id; // the name of the vertex. Must be unique and must not be 0.
     struct Vertex* list_prev;
     struct Vertex* list_next;
     size_t degree;             // this is the length of the array neighbors
     struct Vertex** neighbors; // array of pointers to the neighbors
     Status status;             // default is UNDOMINATED
     size_t neighbor_tag; /* For the reduction algorithm to be used as a temporary marker.
-                            This value must never be the id of an existing but non-neighboring vertex. */
+                            This value must never be the id of an existing but non-neighboring vertex.
+                            0 is a valid value, because vertex ids must not be 0. */
 } Vertex;
 
 
@@ -45,7 +46,7 @@ Graph* graph_parse_stdin(void);
 
 // debug function
 // graph_name is optional and can be NULL
-// dominated vertices will green and fixed verticed will be box shaped
+// dominated vertices will green, fixed verticed will be cyan, and removed vertices will be red
 void graph_print_as_dot(Graph* g, bool include_fixed, const char* graph_name);
 
 
