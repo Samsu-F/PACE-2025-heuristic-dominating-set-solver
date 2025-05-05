@@ -86,6 +86,57 @@ static void _mark_neighbors_dominated(Vertex* v)
 
 
 
+// returns true iff (set Intersection of N[u] over all u in vertices) \ {ignore_v, ignore_w} is non_empty.
+// ignore_v and ignore_w must not be in vertices.
+// may change neighbor tags in the neighborhood of all u in vertices, and those of ignore_v and ignore_w.
+// ignore_v and ignore_w may be NULL if no or only one vertex needs to be ignored
+static bool _common_neighbor_exists(Vertex** vertices, size_t arr_size, Vertex* ignore_v, Vertex* ignore_w)
+{
+    assert(vertices != NULL);
+    if(arr_size <= 1) {
+        return true;
+    }
+    Vertex* u0 = vertices[0];
+    u0->neighbor_tag = u0->id;
+    for(size_t i = 0; i < u0->degree; i++) {
+        u0->neighbors[i]->neighbor_tag = u0->id;
+    }
+    if(ignore_v != NULL) { // disqualify v and w
+        ignore_v->neighbor_tag = 0;
+    }
+    if(ignore_w != NULL) {
+        ignore_w->neighbor_tag = 0;
+    }
+    size_t prev_id = u0->id;
+    for(size_t i_vertices = 1; i_vertices < arr_size; i_vertices++) {
+        Vertex* u = vertices[i_vertices];
+        bool common_neighbor_found = false;
+        for(size_t i_u = 0; i_u < u->degree; i_u++) {
+            if(u->neighbors[i_u]->neighbor_tag == prev_id) { // neighbor shared with all previous u in vertices (including u0)
+                common_neighbor_found = true;
+                u->neighbors[i_u]->neighbor_tag = u->id;
+            }
+            else {
+                u->neighbors[i_u]->neighbor_tag = 0;
+            }
+        }
+        if(u->neighbor_tag == prev_id) { // u is itself a shared neighbor with all previous u in vertices (including u0)
+            common_neighbor_found = true;
+            u->neighbor_tag = u->id;
+        }
+        else {
+            u->neighbor_tag = 0;
+        }
+        prev_id = u->id;
+        if(!(common_neighbor_found)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+
+
 // checks if conditions of at least one of the "extra rules" on page 22 of the paper applies.
 // returning false does not necessarily mean it cannot be removed, but that the simple rules do not
 // imply that it is redundant.
@@ -94,53 +145,19 @@ static bool _is_redundant(Vertex* u)
 {
     assert(u && u->status == DOMINATED);
     size_t count_undominated_neighbors = 0;
-    Vertex* undominated_neighbors[4];
+    Vertex** undominated_neighbors = malloc(u->degree * sizeof(Vertex*));
+    if(!undominated_neighbors) {
+        perror("_is_redundant: malloc failed");
+        exit(1);
+    }
     for(size_t i = 0; i < u->degree; i++) {
         if(u->neighbors[i]->status == UNDOMINATED) {
-            if(count_undominated_neighbors >= 3) { // if this one is the 4th undominated neighbor that was found
-                return false; // there is no check for the case count_undominated_neighbors >= 4 later, so no need to continue
-            }
             undominated_neighbors[count_undominated_neighbors++] = u->neighbors[i];
         }
     }
-
-    if(count_undominated_neighbors <= 1) { // extra rule (1): delete a white vertex of degree zero or one
-        return true;
-    }
-    // extra rule (2): delete a white vertex of degree two if its neighbors are at
-    // distance at most two from each other (after the the removal of v)
-    else if(count_undominated_neighbors == 2) {
-        Vertex* x = undominated_neighbors[0];
-        Vertex* y = undominated_neighbors[1];
-        x->neighbor_tag = x->id;
-        for(size_t i_x = 0; i_x < x->degree; i_x++) {
-            x->neighbors[i_x]->neighbor_tag = x->id;
-        }
-        for(size_t i_y = 0; i_y < y->degree; i_y++) {
-            if((y->neighbors[i_y]->neighbor_tag == x->id) && (y->neighbors[i_y] != u)) {
-                // x and y are direct neighbors or they share a common neighbor that is not u
-                return true;
-            }
-        }
-    }
-    // extra rule (3): delete a white vertex of degree three if the subgraph induced by its neighbors is connected.
-    else if(count_undominated_neighbors == 3) {
-        bool neighbors_connected[3] = {false, false, false}; // to mark which of the vertices in undominated_neighbors is connected to at least one of the others
-        for(size_t i_neigh = 0; i_neigh < 3; i_neigh++) {
-            Vertex* x = undominated_neighbors[i_neigh];
-            for(size_t i_x = 0; i_x < x->degree; i_x++) {
-                assert(x->neighbors[i_x] != x); // no self loop
-                if(x->neighbors[i_x] == undominated_neighbors[0])
-                    neighbors_connected[0] = true;
-                if(x->neighbors[i_x] == undominated_neighbors[1])
-                    neighbors_connected[1] = true;
-                if(x->neighbors[i_x] == undominated_neighbors[2])
-                    neighbors_connected[2] = true;
-            }
-        }
-        return neighbors_connected[0] && neighbors_connected[1] && neighbors_connected[2];
-    }
-    return false;
+    bool result = _common_neighbor_exists(undominated_neighbors, count_undominated_neighbors, u, NULL);
+    free(undominated_neighbors);
+    return result;
 }
 
 
@@ -458,52 +475,6 @@ static bool _rule_1_reduce_vertex(Graph* g, Vertex* v)
     }
     free(n2_only);
     return false;
-}
-
-
-
-// returns true iff (set Intersection of N[u] over all u in vertices) \ {ignore_v, ignore_w} is non_empty.
-// ignore_v and ignore_w must not be in vertices.
-// may change neighbor tags in the neighborhood of all u in vertices, and those of ignore_v and ignore_w.
-static bool _common_neighbor_exists(Vertex** vertices, size_t arr_size, Vertex* ignore_v, Vertex* ignore_w)
-{
-    assert(vertices != NULL && ignore_v != NULL && ignore_w != NULL);
-    if(arr_size <= 1) {
-        return true;
-    }
-    Vertex* u0 = vertices[0];
-    u0->neighbor_tag = u0->id;
-    for(size_t i = 0; i < u0->degree; i++) {
-        u0->neighbors[i]->neighbor_tag = u0->id;
-    }
-    ignore_v->neighbor_tag = 0; // disqualify v and w
-    ignore_w->neighbor_tag = 0;
-    size_t prev_id = u0->id;
-    for(size_t i_vertices = 1; i_vertices < arr_size; i_vertices++) {
-        Vertex* u = vertices[i_vertices];
-        bool common_neighbor_found = false;
-        for(size_t i_u = 0; i_u < u->degree; i_u++) {
-            if(u->neighbors[i_u]->neighbor_tag == prev_id) { // neighbor shared with all previous u in vertices (including u0)
-                common_neighbor_found = true;
-                u->neighbors[i_u]->neighbor_tag = u->id;
-            }
-            else {
-                u->neighbors[i_u]->neighbor_tag = 0;
-            }
-        }
-        if(u->neighbor_tag == prev_id) { // u is itself a shared neighbor with all previous u in vertices (including u0)
-            common_neighbor_found = true;
-            u->neighbor_tag = u->id;
-        }
-        else {
-            u->neighbor_tag = 0;
-        }
-        prev_id = u->id;
-        if(!(common_neighbor_found)) {
-            return false;
-        }
-    }
-    return true;
 }
 
 
