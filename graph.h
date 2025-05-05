@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <inttypes.h>
+#include <stdio.h>
 
 
 
@@ -40,7 +41,7 @@ void graph_free(Graph* g);
 
 
 // caller is responsible for freeing using graph_free(...)
-Graph* graph_parse_stdin(void);
+Graph* graph_parse(FILE* file);
 
 
 

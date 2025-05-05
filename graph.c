@@ -1,7 +1,6 @@
 #include "graph.h"
 
 #include <stdlib.h>
-#include <stdio.h>
 #include <assert.h>
 
 
@@ -53,33 +52,33 @@ static void _graph_add_edge(Vertex* u, Vertex* v)
 
 
 // caller is responsible for freeing using graph_free(...)
-Graph* graph_parse_stdin(void)
+Graph* graph_parse(FILE* file)
 {
     Graph* g = calloc(1, sizeof(Graph));
     if(!g) {
         return NULL;
     }
 
-    char c = (char)getchar();
+    char c = (char)fgetc(file);
     while(c == 'c') { // while the first char of a line is 'c', skip that entire line
-        for(c = (char)getchar(); c != '\n'; c = (char)getchar()) { // empty loop
+        for(c = (char)fgetc(file); c != '\n'; c = (char)fgetc(file)) { // empty loop
             assert(c != EOF);
         }
-        c = (char)getchar(); // get first char of next line
+        c = (char)fgetc(file); // get first char of next line
     }
     assert(c == 'p'); // first char of the first non-comment line should be a p
-    c = (char)getchar();
+    c = (char)fgetc(file);
     assert(c == ' ');
-    c = (char)getchar();
+    c = (char)fgetc(file);
     assert(c == 'd');
-    c = (char)getchar();
+    c = (char)fgetc(file);
     assert(c == 's');
-    c = (char)getchar();
+    c = (char)fgetc(file);
     assert(c == ' ');
 
     uintmax_t tmp_n, tmp_m;
     size_t n, m;
-    scanf("%" SCNuMAX "%" SCNuMAX "\n", &tmp_n, &tmp_m); // n and m
+    fscanf(file, "%" SCNuMAX "%" SCNuMAX "\n", &tmp_n, &tmp_m); // n and m
     if((tmp_n > (uintmax_t)SIZE_MAX) || (tmp_m > (uintmax_t)SIZE_MAX)) {
         fprintf(stderr, "graph_parse_stdin: size_t is not large enough to hold number of vertices/edges.");
         exit(1);
@@ -115,7 +114,7 @@ Graph* graph_parse_stdin(void)
     // continue parsing
     for(size_t i = 0; i < m; i++) {
         size_t u_id, v_id;
-        if(scanf("\t%zu %zu\n", &u_id, &v_id) != 2) {
+        if(fscanf(file, "\t%zu %zu\n", &u_id, &v_id) != 2) {
             assert(false);
         }
         edges[i].a = tmp_vertex_arr[u_id];
