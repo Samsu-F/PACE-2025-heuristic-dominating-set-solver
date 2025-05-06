@@ -609,8 +609,9 @@ void reduce(Graph* g, float time_budget_total, float time_budget_rule2)
     const clock_t start_time = clock();
     const clock_t deadline_total = start_time + (clock_t)(time_budget_total * CLOCKS_PER_SEC);
     const clock_t deadline_rule2 = start_time + (clock_t)(time_budget_rule2 * CLOCKS_PER_SEC);
+    const clock_t deadline_redundant = start_time + (clock_t)(1.1 * time_budget_total * CLOCKS_PER_SEC);
     size_t loop_iteration = 0;
-    bool time_remaining_total = true, time_remaining_rule2 = true;
+    bool time_remaining_total = true, time_remaining_rule2 = true, time_remaining_redundant = true;
 
     bool another_loop = true;
     while(another_loop) { // TODO: even on really sparse graphs, very few additional vertices are found when
@@ -625,11 +626,14 @@ void reduce(Graph* g, float time_budget_total, float time_budget_rule2)
                 clock_t current_time = clock();
                 time_remaining_total = current_time < deadline_total;
                 time_remaining_rule2 = current_time < deadline_rule2;
-                // fprintf(stderr, "loop_iteration == %zu\tcurrent_time == %zu\tdeadline_rule2 == %zu\tCLOCKS_PER_SEC == %zu\ttime_remaining_rule2 == %d\n", loop_iteration, (size_t)current_time, (size_t)deadline_rule2, (size_t)CLOCKS_PER_SEC,(int)time_remaining_rule2);
+                time_remaining_redundant = current_time < deadline_redundant;
             }
 
             if(v->status == REMOVED) {
                 _delete_and_free_vertex(g, v);
+                continue;
+            }
+            if(!time_remaining_redundant) {
                 continue;
             }
             else if(v->status == DOMINATED && _is_redundant(v)) {
