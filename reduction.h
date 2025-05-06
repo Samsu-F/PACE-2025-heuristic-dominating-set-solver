@@ -11,7 +11,7 @@
 
 
 // WIP
-size_t reduce(Graph* g);
+void reduce(Graph* g);
 
 
 

@@ -18,7 +18,7 @@ typedef struct Vertex {
     size_t degree;             // this is the length of the array neighbors
     struct Vertex** neighbors; // array of pointers to the neighbors
     Status status;             // default is UNDOMINATED
-    size_t neighbor_tag; /* For the reduction algorithm to be used as a temporary marker.
+    size_t neighbor_tag;       /* For the reduction algorithm to be used as a temporary marker.
                             This value must never be the id of an existing but non-neighboring vertex.
                             0 is a valid value, because vertex ids must not be 0. */
 } Vertex;

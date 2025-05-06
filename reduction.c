@@ -463,15 +463,15 @@ static bool _rule_2_reduce_vertices(Graph* g, Vertex* v, Vertex* w)
     // tag all vertices in N[v,w]
     w->neighbor_tag = w->id; // tag w 's neighbors first, then those of v
     for(size_t i = 0; i < w->degree; i++) {
-        Vertex* u = w->neighbors[i];
-        u->neighbor_tag = w->id;
+        w->neighbors[i]->neighbor_tag = w->id;
     }
     v->neighbor_tag = v->id;
     for(size_t i = 0; i < v->degree; i++) {
-        Vertex* u = v->neighbors[i];
-        u->neighbor_tag = v->id;
+        v->neighbors[i]->neighbor_tag = v->id;
     }
+    bool v_and_w_are_adjacent = (w->neighbor_tag == v->id);
 
+    size_t count_n1 = 0;
     for(size_t i = 0; i < v->degree; i++) {
         Vertex* u = v->neighbors[i];
         if(u == v || u == w) {
@@ -485,7 +485,8 @@ static bool _rule_2_reduce_vertices(Graph* g, Vertex* v, Vertex* w)
             case 2:
                 n2[count_n2++] = u; // may be put in N2 but must not be put in N3
                 break;
-            default: // in N1, nothing to do
+            default: // in N1
+                count_n1++;
                 break;
         }
     }
@@ -502,7 +503,8 @@ static bool _rule_2_reduce_vertices(Graph* g, Vertex* v, Vertex* w)
             case 2:
                 n2[count_n2++] = u; // may be put in N2 but must not be put in N3
                 break;
-            default: // in N1, nothing to do
+            default: // in N1
+                count_n1++;
                 break;
         }
     }
@@ -556,7 +558,7 @@ static bool _rule_2_reduce_vertices(Graph* g, Vertex* v, Vertex* w)
             remove_n2_and_n3 = true;
             _fix_vertex_and_mark_removed(g, w);
         }
-        else { // case 2
+        else { // case 2: neither v alone nor w alone dominates N3
             assert(fprintf(stderr, "rule 2 case 2 found, v->id == %zu,\tw->id == %zu\t==> fix v and w\n",
                            v->id, w->id));
             assert((!v_alone_dominates_n3) && (!w_alone_dominates_n3));
@@ -566,6 +568,18 @@ static bool _rule_2_reduce_vertices(Graph* g, Vertex* v, Vertex* w)
                 _fix_vertex_and_mark_removed(g, w);
             }
         }
+        if(count_n1 == 0 && (!v_and_w_are_adjacent)) { // intentionally not an else if
+            // case I found myself, not from the paper. Isolated component consisting of just this neighborhood N[v, w]
+            if(v->status == UNDOMINATED) {
+                _fix_vertex_and_mark_removed(g, v);
+                remove_n2_and_n3 = true;
+            }
+            if(w->status == UNDOMINATED) {
+                _fix_vertex_and_mark_removed(g, w);
+                remove_n2_and_n3 = true;
+            }
+        }
+
 
         if(remove_n2_and_n3) {
             for(size_t i = 0; i < count_n2; i++) {
@@ -588,10 +602,8 @@ static bool _rule_2_reduce_vertices(Graph* g, Vertex* v, Vertex* w)
 
 
 
-//temporary test
-size_t reduce(Graph* g)
+void reduce(Graph* g)
 {
-    size_t count_fixed = 0;
     bool another_loop = true;
     while(another_loop) { // TODO: even on really sparse graphs, very few additional vertices are found when
         // re-checking everything, so it might not be worth the computation time. But on the other hand, it
@@ -611,31 +623,29 @@ size_t reduce(Graph* g)
             }
             else if(_rule_1_reduce_vertex(g, v)) {
                 another_loop = true;
-                count_fixed++;
                 continue;
             }
 
-            // this is inefficient and just for testing
-            for(size_t i = 0; v->status != REMOVED && i < v->degree; i++) {
-                if(v->status != REMOVED && v->neighbors[i]->status != REMOVED) {
-                    if(_rule_2_reduce_vertices(g, v, v->neighbors[i])) {
-                        another_loop = true;
-                        i--;
-                        continue;
-                    }
+            // TODO: I think this is inefficient but every other way of doing it that I have tried so far was slower
+            for(size_t i = 0; v->status != REMOVED && i < v->degree;) {
+                Vertex* u1 = v->neighbors[i++];
+                if(u1->status != REMOVED && _rule_2_reduce_vertices(g, v, u1)) {
+                    another_loop = true;
+                    i--; // stay at this index
+                    continue;
                 }
-                for(size_t j = i + 1; v->status != REMOVED && j < v->degree; j++) {
-                    if(v->neighbors[i]->status != REMOVED && v->neighbors[j]->status != REMOVED) {
-                        if(_rule_2_reduce_vertices(g, v->neighbors[i], v->neighbors[j])) {
+                for(size_t j = i; v->status != REMOVED && j < v->degree; j++) {
+                    Vertex* u2 = v->neighbors[j];
+                    assert(u1 != u2 && u1 != v && u2 != v);
+                    if(u1->status != REMOVED && u2->status != REMOVED) {
+                        if(_rule_2_reduce_vertices(g, u1, u2)) {
                             another_loop = true;
                             i = 0;
-                            j--;
+                            break;
                         }
                     }
                 }
             }
         }
     }
-    fprintf(stderr, "rule 1: count_fixed = %zu\n", count_fixed);
-    return count_fixed;
 }
