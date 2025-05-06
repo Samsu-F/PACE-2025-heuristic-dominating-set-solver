@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <time.h>
 
 #include <stdio.h> // DEBUG
 
@@ -602,8 +603,15 @@ static bool _rule_2_reduce_vertices(Graph* g, Vertex* v, Vertex* w)
 
 
 
-void reduce(Graph* g)
+void reduce(Graph* g, float time_budget_total, float time_budget_rule2)
 {
+    assert(time_budget_total >= time_budget_rule2);
+    const clock_t start_time = clock();
+    const clock_t deadline_total = start_time + (clock_t)(time_budget_total * CLOCKS_PER_SEC);
+    const clock_t deadline_rule2 = start_time + (clock_t)(time_budget_rule2 * CLOCKS_PER_SEC);
+    size_t loop_iteration = 0;
+    bool time_remaining_total = true, time_remaining_rule2 = true;
+
     bool another_loop = true;
     while(another_loop) { // TODO: even on really sparse graphs, very few additional vertices are found when
         // re-checking everything, so it might not be worth the computation time. But on the other hand, it
@@ -612,6 +620,14 @@ void reduce(Graph* g)
         Vertex* next;
         for(Vertex* v = g->vertices; v != NULL; v = next) {
             next = v->list_next;
+
+            if((loop_iteration++ % 256) == 0) {
+                clock_t current_time = clock();
+                time_remaining_total = current_time < deadline_total;
+                time_remaining_rule2 = current_time < deadline_rule2;
+                // fprintf(stderr, "loop_iteration == %zu\tcurrent_time == %zu\tdeadline_rule2 == %zu\tCLOCKS_PER_SEC == %zu\ttime_remaining_rule2 == %d\n", loop_iteration, (size_t)current_time, (size_t)deadline_rule2, (size_t)CLOCKS_PER_SEC,(int)time_remaining_rule2);
+            }
+
             if(v->status == REMOVED) {
                 _delete_and_free_vertex(g, v);
                 continue;
@@ -621,24 +637,28 @@ void reduce(Graph* g)
                 another_loop = true;
                 continue;
             }
+            if(!time_remaining_total) {
+                continue;
+            }
             else if(_rule_1_reduce_vertex(g, v)) {
                 another_loop = true;
                 continue;
             }
 
-            // TODO: I think this is inefficient but every other way of doing it that I have tried so far was slower
-            for(size_t i = 0; v->status != REMOVED && i < v->degree;) {
-                Vertex* u1 = v->neighbors[i++];
-                if(u1->status != REMOVED && _rule_2_reduce_vertices(g, v, u1)) {
-                    another_loop = true;
-                    i--; // stay at this index
-                    continue;
-                }
-                for(size_t j = i; v->status != REMOVED && j < v->degree; j++) {
-                    Vertex* u2 = v->neighbors[j];
-                    assert(u1 != u2 && u1 != v && u2 != v);
-                    if(u1->status != REMOVED && u2->status != REMOVED) {
-                        if(_rule_2_reduce_vertices(g, u1, u2)) {
+            if(time_remaining_rule2) {
+                // TODO: I think this is inefficient but every other way of doing it that I have tried so far was slower
+                for(size_t i = 0; v->status != REMOVED && i < v->degree;) {
+                    Vertex* u1 = v->neighbors[i++];
+                    if(u1->status != REMOVED && _rule_2_reduce_vertices(g, v, u1)) {
+                        another_loop = true;
+                        i--; // stay at this index
+                        continue;
+                    }
+                    for(size_t j = i; v->status != REMOVED && j < v->degree; j++) {
+                        Vertex* u2 = v->neighbors[j];
+                        assert(u1 != u2 && u1 != v && u2 != v);
+                        if(u1->status != REMOVED && u2->status != REMOVED &&
+                           _rule_2_reduce_vertices(g, u1, u2)) {
                             another_loop = true;
                             i = 0;
                             break;

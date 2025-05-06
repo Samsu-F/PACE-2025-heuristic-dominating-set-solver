@@ -44,7 +44,7 @@ int main(int argc, char* argv[])
     fprintf(stderr, "input:   n = %zu\tm = %zu\n", g->n, g->m);
     clock_t time_reduction_start = clock();
 
-    reduce(g);
+    reduce(g, 15.0f, 10.0f);
 
     clock_t time_reduction_end = clock();
     fprintf(stderr, "reduced: n = %zu\tm = %zu\n", g->n, g->m);
