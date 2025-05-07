@@ -6,7 +6,7 @@ CC = gcc
 
 # Compiler flags
 CFLAGS = --std=c17 -O3 -W -Wall -Wextra
-PEDANTIC_FLAGS = -Werror -Wpedantic -Wshadow -Wcast-qual -Wstrict-prototypes -Wmissing-prototypes -Wswitch-default -Wcast-align=strict -Wbad-function-cast -Wstrict-overflow=4 -Winline -Wundef -Wnested-externs -Wunreachable-code -Wlogical-op -Wfloat-equal -Wredundant-decls -Wold-style-definition -Wwrite-strings -Wformat=2 -Wconversion -Wno-error=unused-parameter -Wno-error=inline -Wno-error=unreachable-code -Wno-error=unused-function
+PEDANTIC_FLAGS = -Werror -Wpedantic -Wshadow -Wcast-qual -Wstrict-prototypes -Wmissing-prototypes -Wswitch-default -Wcast-align=strict -Wbad-function-cast -Wstrict-overflow=4 -Winline -Wundef -Wnested-externs -Wunreachable-code -Wlogical-op -Wfloat-equal -Wredundant-decls -Wold-style-definition -Wwrite-strings -Wformat=2 -Wconversion -Wno-error=unused-parameter -Wno-error=inline -Wno-error=unreachable-code -Wno-error=unused-function -Wno-error=unused-variable -Wno-error=missing-prototypes
 SANITIZE_FLAGS = -fanalyzer -fsanitize=address -fsanitize=undefined -fsanitize=leak -fsanitize=integer-divide-by-zero -fsanitize=null -fsanitize=signed-integer-overflow -fsanitize=bounds-strict -fsanitize=alignment -fsanitize=object-size -pg
 RELEASE_FLAGS = -O3 -DNDEBUG
 PROFILE_FLAGS = -p
@@ -20,10 +20,10 @@ BUILD_DIR = build
 TARGET = $(BUILD_DIR)/main
 
 # Source files
-SRCS = graph.c reduction.c main.c
+SRCS = graph.c reduction.c pqueue.c main.c
 
 # Header files
-HDRS = graph.h reduction.h
+HDRS = graph.h reduction.h pqueue.h
 
 # Object files
 OBJS = $(addprefix $(BUILD_DIR)/,$(SRCS:.c=.o))

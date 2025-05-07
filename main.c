@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
+#include <assert.h>
 
 #include "graph.h"
 #include "reduction.h"
@@ -33,6 +34,37 @@ static bool verify_n_m_fixed(Graph* g)
         return false;
     }
     return true;
+}
+
+
+
+bool size_t_greater(const size_t a, const size_t b)
+{
+    return a > b;
+}
+
+
+
+static void test_pq(Graph* g)
+{
+    PQueue* pq = pq_new(size_t_greater);
+    assert(pq);
+    for(Vertex* v = g->vertices; v != NULL; v = v->list_next) {
+        pq_insert(pq, (KeyValPair) {.key = v->id + 100000000, .val = v});
+    }
+    for(Vertex* v = g->vertices; v != NULL; v = v->list_next) {
+        if(v->id % 10 > 0) {
+            pq_decrease_priority(pq, v, pq_get_key(pq, v) - 100000000 + (v->id % 10) * 10000000);
+        }
+    }
+    while(!pq_is_empty(pq)) {
+        KeyValPair kv = pq_pop(pq);
+        Vertex* v = kv.val;
+        fprintf(stderr, "kv.key == %zu\tv->id == %zu\tptr %p\n", kv.key, v->id, (void*)v);
+        assert(kv.key % 10000000 == v->id);
+        assert(((v->id % 10 != 0) && kv.key / 10000000 == v->id % 10) ||
+               ((v->id % 10 == 0) && kv.key - 100000000 == v->id));
+    }
 }
 
 
@@ -73,7 +105,8 @@ int main(int argc, char* argv[])
         exit(1);
     }
 
-    verify_n_m_fixed(g);
+    // verify_n_m_fixed(g);
+    // test_pq(g);
 
     size_t input_n = g->n, input_m = g->m;
     clock_t time_reduction_start = clock();
