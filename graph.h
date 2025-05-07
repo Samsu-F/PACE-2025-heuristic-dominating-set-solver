@@ -18,15 +18,17 @@ typedef struct Vertex {
     size_t degree;             // this is the length of the array neighbors
     struct Vertex** neighbors; // array of pointers to the neighbors
     Status status;             // default is UNDOMINATED
-    size_t neighbor_tag;       /* For the reduction algorithm to be used as a temporary marker.
-                            This value must never be the id of an existing but non-neighboring vertex.
-                            0 is a valid value, because vertex ids must not be 0. */
+    size_t neighbor_tag; /* For the reduction algorithm to be used as a temporary marker.
+                                This value must never be the id of an existing but non-neighboring vertex.
+                                0 is a valid value, because vertex ids must not be 0. */
+
 } Vertex;
 
 
 typedef struct {
-    size_t n; // number of vertices remaining
-    size_t m; // number of edges remaining
+    size_t n;           // number of vertices remaining
+    size_t m;           // number of edges remaining
+    size_t count_fixed; // number of fixed vertices
     // fixed vertices that were removed from the graph do not count towards n and m
     Vertex* vertices; // list of vertices in the graph
     Vertex* fixed; // list of vertices that are known to be optimal choices for any dominating set

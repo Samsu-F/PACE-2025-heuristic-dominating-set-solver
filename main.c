@@ -7,8 +7,40 @@
 
 
 
+static bool verify_n_m_fixed(Graph* g)
+{
+    size_t n = 0;
+    size_t m = 0;
+    size_t count_fixed = 0;
+
+    for(Vertex* v = g->vertices; v != NULL; v = v->list_next) {
+        n++;
+        m += v->degree;
+    }
+    for(Vertex* v = g->fixed; v != NULL; v = v->list_next) {
+        count_fixed++;
+    }
+    m /= 2; // each edge was counted twice
+    if((g->n != n) || (g->m != m) || (g->count_fixed != count_fixed)) {
+        fprintf(stderr, "verification failed:\n");
+        if(g->n != n)
+            fprintf(stderr, "\tn == %zu, g->n == %zu\n", n, g->n);
+        if(g->m != m)
+            fprintf(stderr, "\tm == %zu, g->m == %zu\n", m, g->m);
+        if(g->count_fixed != count_fixed)
+            fprintf(stderr, "\tcount_fixed == %zu, g->count_fixed == %zu\n", count_fixed, g->count_fixed);
+        exit(1);
+        return false;
+    }
+    return true;
+}
+
+
+
 int main(int argc, char* argv[])
 {
+    fprintf(stderr, "sizeof(Vertex) == %zu\n", sizeof(Vertex));
+
     if(argc > 2) {
         fprintf(stderr, "too many arguments\n");
         return EXIT_FAILURE;
@@ -40,24 +72,37 @@ int main(int argc, char* argv[])
     if(!g) {
         exit(1);
     }
-    fprintf(stderr, "%s\n", argc == 2 ? argv[1] : "stdin");
-    fprintf(stderr, "input:   n = %zu\tm = %zu\n", g->n, g->m);
+
+    verify_n_m_fixed(g);
+
+    size_t input_n = g->n, input_m = g->m;
     clock_t time_reduction_start = clock();
 
     reduce(g, 15.0f, 10.0f);
 
     clock_t time_reduction_end = clock();
-    fprintf(stderr, "reduced: n = %zu\tm = %zu\n", g->n, g->m);
+    size_t reduced_n = g->n, reduced_m = g->m;
 
-    graph_print_as_dot(g, false, "Test");
+    verify_n_m_fixed(g);
+    // graph_print_as_dot(g, false, "Test");
     graph_free(g);
 
 
     float ms_parse_input = (float)(1000 * (time_parsing_end - time_parsing_start)) / CLOCKS_PER_SEC;
     float ms_reduce = (float)(1000 * (time_reduction_end - time_reduction_start)) / CLOCKS_PER_SEC;
+
+
+    fprintf(stderr, "%s\n", argc == 2 ? argv[1] : "stdin");
+    fprintf(stderr, "input:   n = %zu\tm = %zu\nreduced: n = %zu\tm = %zu\n", input_n, input_m,
+            reduced_n, reduced_m);
     fprintf(stderr,
             "---\n"
             "parse input:    %7.3f ms\n"
-            "reduce:         %7.3f ms\n\n",
+            "reduce:         %7.3f ms\n"
+            "\n\n\n",
             ms_parse_input, ms_reduce);
+
+
+    // // csv mode
+    // fprintf(stderr, "%zu,%zu,%.3f,%.3f\n", input_n, reduced_n, (double)reduced_n / (double)input_n, ms_reduce);
 }

@@ -182,6 +182,7 @@ static void _add_id_to_fixed(Graph* g, size_t id)
         g->fixed->list_prev = v;
     }
     g->fixed = v;
+    g->count_fixed++;
 }
 
 
