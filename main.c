@@ -128,7 +128,7 @@ int main(int argc, char* argv[])
     size_t input_n = g->n, input_m = g->m;
     clock_t time_reduction_start = clock();
 
-    reduce(g, 15.0f, 0.0f); /////////////////////////////////////////////////////////////////////////
+    reduce(g, 15.0f, 10.0f); /////////////////////////////////////////////////////////////////////////
 
     clock_t time_reduction_end = clock();
     size_t reduced_n = g->n, reduced_m = g->m;
