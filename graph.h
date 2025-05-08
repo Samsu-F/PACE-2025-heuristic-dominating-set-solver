@@ -10,9 +10,6 @@
 
 
 
-typedef enum { UNDOMINATED, DOMINATED, REMOVED } Status;
-
-
 typedef struct Vertex {
     size_t id; // the name of the vertex. Must be unique and must not be 0.
     struct Vertex* list_prev; // TODO: if possible, move to an array based storage instead of doubly linked list for smaller
@@ -27,16 +24,18 @@ typedef struct Vertex {
         size_t pq_kv_idx;    /* May only be accessed by the internals of the priority queue.
                                 The index this vertex has inside the priority queue. */
     };
-    Status status; // default is UNDOMINATED
-    bool is_in_pq; // May be read by anyone but must not be changed by anything but the priority queue internals
+    union {
+        bool is_removed; // for use during the reduction phase
+        bool is_in_pq; // May be read by anyone but must not be changed by anything but the priority queue internals
+    };
 } Vertex;
 
 
 typedef struct {
+    // fixed vertices that were removed from the graph do not count towards n and m
     size_t n;           // number of vertices remaining
     size_t m;           // number of edges remaining
     size_t count_fixed; // number of fixed vertices
-    // fixed vertices that were removed from the graph do not count towards n and m
     Vertex* vertices; // list of vertices in the graph
     Vertex* fixed; // list of vertices that are known to be optimal choices for any dominating set
 } Graph;

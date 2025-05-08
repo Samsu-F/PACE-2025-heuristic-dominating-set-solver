@@ -21,15 +21,14 @@ VertexArray greedy(Graph* g)
         exit(1);
     }
     for(Vertex* v = g->vertices; v != NULL; v = v->list_next) {
-        assert(v->dominated_by_number == 0);
-        assert(v->status == DOMINATED || v->status == UNDOMINATED);
+        assert(!v->is_in_pq);             // this is the same data as v->is_removed
         size_t undominated_neighbors = 0; // including itself if v is undominated
-        if(v->status == UNDOMINATED) {
+        if(v->dominated_by_number == 0) {
             undominated_vertices++;
             undominated_neighbors++;
         }
         for(size_t i = 0; i < v->degree; i++) {
-            if(v->neighbors[i]->status == UNDOMINATED) {
+            if(v->neighbors[i]->dominated_by_number == 0) {
                 undominated_neighbors++;
             }
         }
@@ -55,7 +54,7 @@ VertexArray greedy(Graph* g)
         ds.arr[ds.size++] = v;
         size_t v_is_newly_dominated = 0;
         v->dominated_by_number++;
-        if(v->dominated_by_number == 1 && v->status == UNDOMINATED) {
+        if(v->dominated_by_number == 1) {
             v_is_newly_dominated = 1;
             undominated_vertices--;
         }
@@ -64,7 +63,7 @@ VertexArray greedy(Graph* g)
             Vertex* u1 = v->neighbors[i_v];
             u1->dominated_by_number++;
             size_t delta_undominated_neighbors_u1 = v_is_newly_dominated;
-            if(u1->status == UNDOMINATED && u1->dominated_by_number == 1) { // if v is the first one to dominate u1
+            if(u1->dominated_by_number == 1) { // if v is the first one to dominate u1
                 delta_undominated_neighbors_u1++; // u1 lost itself as an undominated neighbor
                 undominated_vertices--;
                 for(size_t i_u1 = 0; i_u1 < u1->degree; i_u1++) {

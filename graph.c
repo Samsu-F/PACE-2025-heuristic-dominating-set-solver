@@ -102,7 +102,6 @@ Graph* graph_parse(FILE* file)
             exit(1);
         }
         tmp_vertex_arr[id]->id = id; // initialize all non-zero data of the vertex
-        tmp_vertex_arr[id]->status = UNDOMINATED;
     }
     // link them to form a doubly linked list
     g->vertices = tmp_vertex_arr[1];
@@ -151,15 +150,8 @@ void graph_print_as_dot(Graph* g, bool include_fixed, const char* graph_name)
     printf("graph %s {", graph_name ? graph_name : "G");
     for(Vertex* v = g->vertices; v != NULL; v = v->list_next) {
         printf("\n\t%zu", v->id);
-        switch(v->status) {
-            case DOMINATED:
-                printf("[style=filled, fillcolor=green]");
-                break;
-            case REMOVED:
-                printf("[style=filled, fillcolor=red]");
-                break;
-            default:
-                break;
+        if(v->dominated_by_number > 0) {
+            printf("[style=filled, fillcolor=green]");
         }
     }
     for(Vertex* v = g->fixed; include_fixed && v != NULL; v = v->list_next) {

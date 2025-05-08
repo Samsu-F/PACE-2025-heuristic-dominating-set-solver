@@ -41,10 +41,10 @@ static void _remove_edges(Graph* g, Vertex* v)
 static void _mark_vertex_removed(Graph* g, Vertex* v)
 {
     assert(v != NULL);
-    assert(v->status != REMOVED); // wouldn't be a problem but it's a sign something went wrong
-    if(v->status != REMOVED) {
+    assert(!(v->is_removed)); // wouldn't be a problem but it's a sign something went wrong
+    if(!(v->is_removed)) {
         g->n--;
-        v->status = REMOVED;
+        v->is_removed = true;
         _remove_edges(g, v);
     }
 }
@@ -57,8 +57,8 @@ static void _mark_vertex_removed(Graph* g, Vertex* v)
 static void _delete_and_free_vertex(Graph* g, Vertex* v)
 {
     assert(g != NULL && v != NULL);
-    if(v->status != REMOVED) {
-        assert(false);
+    assert(v->is_removed);
+    if(!v->is_removed) {
         _mark_vertex_removed(g, v);
     }
     if(v->list_prev == NULL) { // if it is the head of the list
@@ -81,7 +81,7 @@ static void _mark_neighbors_dominated(Vertex* v)
     assert(v != NULL);
     for(size_t i = 0; i < v->degree; i++) {
         Vertex* u = v->neighbors[i];
-        u->status = DOMINATED;
+        u->dominated_by_number++;
     }
 }
 
@@ -144,7 +144,7 @@ static bool _common_neighbor_exists(Vertex** vertices, size_t arr_size, Vertex* 
 // u: the vertex to check if has become redundant and can also be removed
 static bool _is_redundant(Vertex* u)
 {
-    assert(u && u->status == DOMINATED);
+    assert(u != NULL && (!u->is_removed) && u->dominated_by_number > 0);
     size_t count_undominated_neighbors = 0;
     Vertex** undominated_neighbors = malloc(u->degree * sizeof(Vertex*));
     if(!undominated_neighbors) {
@@ -152,7 +152,7 @@ static bool _is_redundant(Vertex* u)
         exit(1);
     }
     for(size_t i = 0; i < u->degree; i++) {
-        if(u->neighbors[i]->status == UNDOMINATED) {
+        if(u->neighbors[i]->dominated_by_number == 0) {
             undominated_neighbors[count_undominated_neighbors++] = u->neighbors[i];
         }
     }
@@ -174,7 +174,7 @@ static void _add_id_to_fixed(Graph* g, size_t id)
     v->id = id;
     v->neighbors = NULL;
     v->degree = 0;
-    v->status = DOMINATED;
+    v->dominated_by_number = 1; // this is not the actual correct value, but this field will not be used anyway (hopefully)
 
     v->list_prev = NULL;
     v->list_next = g->fixed;
@@ -192,6 +192,7 @@ static void _add_id_to_fixed(Graph* g, size_t id)
 static void _fix_vertex_and_mark_removed(Graph* g, Vertex* v)
 {
     assert(g != NULL && v != NULL);
+    assert(!v->is_removed);
     _add_id_to_fixed(g, v->id);
     _mark_neighbors_dominated(v);
 
@@ -226,30 +227,31 @@ static void _fix_vertex_and_mark_removed(Graph* g, Vertex* v)
 static void _fix_vertices_and_mark_removed(Graph* g, Vertex* v, Vertex* w)
 {
     assert(g != NULL && v != NULL && w != NULL);
+    assert((!v->is_removed) && (!w->is_removed));
     _add_id_to_fixed(g, v->id);
     _add_id_to_fixed(g, w->id);
     _mark_neighbors_dominated(v);
     _mark_neighbors_dominated(w);
 
-        // save the array of neighbors
-        size_t count_neighbors = v->degree + w->degree;
-        Vertex** neighbors = malloc(count_neighbors * sizeof(Vertex*));
-        if(!neighbors) {
-            perror("_fix_vertices_and_mark_removed: malloc failed");
-            exit(1);
-        }
-        memcpy(neighbors, v->neighbors, v->degree * sizeof(Vertex*));
-        memcpy(&(neighbors[v->degree]), w->neighbors, w->degree * sizeof(Vertex*));
+    // save the array of neighbors
+    size_t count_neighbors = v->degree + w->degree;
+    Vertex** neighbors = malloc(count_neighbors * sizeof(Vertex*));
+    if(!neighbors) {
+        perror("_fix_vertices_and_mark_removed: malloc failed");
+        exit(1);
+    }
+    memcpy(neighbors, v->neighbors, v->degree * sizeof(Vertex*));
+    memcpy(&(neighbors[v->degree]), w->neighbors, w->degree * sizeof(Vertex*));
 
-        _mark_vertex_removed(g, v); // after this point, v->degree == 0 and v->neighbors == NULL
-        _mark_vertex_removed(g, w); // after this point, w->degree == 0 and w->neighbors == NULL
+    _mark_vertex_removed(g, v); // after this point, v->degree == 0 and v->neighbors == NULL
+    _mark_vertex_removed(g, w); // after this point, w->degree == 0 and w->neighbors == NULL
 
-        for(size_t i = 0; i < count_neighbors; i++) {
-            if(neighbors[i]->status != REMOVED && _is_redundant(neighbors[i])) {
-                _mark_vertex_removed(g, neighbors[i]);
-            }
+    for(size_t i = 0; i < count_neighbors; i++) {
+        if((!neighbors[i]->is_removed) && _is_redundant(neighbors[i])) {
+            _mark_vertex_removed(g, neighbors[i]);
         }
-        free(neighbors);
+    }
+    free(neighbors);
 }
 
 
@@ -267,9 +269,10 @@ static int _is_in_n1_rule1(const size_t v_id, const Vertex* const u)
     assert(u != NULL);
     bool dominated_outside_neighbor_found = false;
     for(size_t i = 0; i < u->degree; i++) {
+        assert(!u->neighbors[i]->is_removed);
         if(u->neighbors[i]->neighbor_tag != v_id) {
-            if(u->neighbors[i]->status == UNDOMINATED) {
-                return true;
+            if(u->neighbors[i]->dominated_by_number == 0) {
+                return 1;
             }
             else {
                 dominated_outside_neighbor_found = true;
@@ -298,9 +301,10 @@ static int _is_in_n1_rule2(const size_t v_id, const size_t w_id, const Vertex* c
     assert(v_id != w_id && u->id != v_id && u->id != w_id);
     bool dominated_outside_neighbor_found = false;
     for(size_t i = 0; i < u->degree; i++) {
+        assert(!u->neighbors[i]->is_removed);
         if(u->neighbors[i]->neighbor_tag != v_id && u->neighbors[i]->neighbor_tag != w_id) {
-            if(u->neighbors[i]->status == UNDOMINATED) {
-                return true;
+            if(u->neighbors[i]->dominated_by_number == 0) {
+                return 1;
             }
             else {
                 dominated_outside_neighbor_found = true;
@@ -322,7 +326,8 @@ static int _is_in_n1_rule2(const size_t v_id, const size_t w_id, const Vertex* c
 static bool _is_in_n2_rule1(const size_t v_id, const Vertex* const u)
 {
     assert(u != NULL);
-    if(u->status != UNDOMINATED) {
+    assert(!u->is_removed);
+    if(u->dominated_by_number > 0) {
         return true; // only undominated vertices can be in N3
     }
     for(size_t i = 0; i < u->degree; i++) {
@@ -344,7 +349,8 @@ static bool _is_in_n2_rule2(const size_t v_id, const size_t w_id, const Vertex* 
 {
     assert(u != NULL);
     assert(v_id != w_id && u->id != v_id && u->id != w_id);
-    if(u->status != UNDOMINATED) {
+    assert(!u->is_removed);
+    if(u->dominated_by_number > 0) {
         return true; // only undominated vertices can be in N3
     }
     for(size_t i = 0; i < u->degree; i++) {
@@ -365,22 +371,22 @@ static bool _is_in_n2_rule2(const size_t v_id, const size_t w_id, const Vertex* 
 static bool _rule_1_reduce_vertex(Graph* g, Vertex* v)
 {
     assert(g != NULL && v != NULL);
-    assert(v->status != REMOVED);
+    assert(!v->is_removed);
     if(v->degree == 0) {
-        if(v->status == UNDOMINATED) {
-            _fix_vertex_and_mark_removed(g, v);
+        if(v->dominated_by_number == 0) {
+            _fix_vertex_and_mark_removed(g, v); // fix isolated undominated vertices
         }
         else {
-            _mark_vertex_removed(g, v);
+            _mark_vertex_removed(g, v); // isolated dominated vertices can just be removed
         }
         return true;
     }
     if(v->degree == 1) { // handling degree == 1 separately is redundant but might result in a slight speed up. TODO: test
-        if(v->status == UNDOMINATED) {
+        if(v->dominated_by_number == 0) {
             _fix_vertex_and_mark_removed(g, v->neighbors[0]);
         }
         else {
-            _mark_vertex_removed(g, v);
+            _mark_vertex_removed(g, v); // isolated leaves are redundant
         }
         return true;
     }
@@ -425,7 +431,7 @@ static bool _rule_1_reduce_vertex(Graph* g, Vertex* v)
     }
     v->neighbor_tag = 0;
     bool reduce = false; // the flag that saves if we reduce at the end
-    if((count_n2_only + count_n2_n3_mixed == v->degree) && v->status == UNDOMINATED) {
+    if((count_n2_only + count_n2_n3_mixed == v->degree) && v->dominated_by_number == 0) {
         // v needs to be dominated by itself or a neighbor, but all neighbors are at best equally good or worse choices than v
         reduce = true;
     }
@@ -479,11 +485,12 @@ static bool _is_subset_of_neighborhood(Vertex** vertices, size_t arr_size, Verte
 
 
 
+// TODO: refactor this monster function
 static bool _rule_2_reduce_vertices(Graph* g, Vertex* v, Vertex* w)
 {
     bool result = false;
     assert(g != NULL && v != NULL && w != NULL);
-    assert(v->status != REMOVED && w->status != REMOVED);
+    assert((!v->is_removed) && (!w->is_removed));
     assert(v != w && v->id != w->id);
     // assert(v->degree >= 2 && w->degree >= 2);  ///// DEBUG, put it back ///// DEBUG, put it back ///// DEBUG, put it back ///// DEBUG, put it back ///// DEBUG, put it back ///// DEBUG, put it back /////
 
@@ -577,6 +584,8 @@ static bool _rule_2_reduce_vertices(Graph* g, Vertex* v, Vertex* w)
         bool remove_n3 = false;
         bool remove_n2_v = false; // whether the intersection of N2(v,w) and N(v) should be removed
         bool remove_n2_w = false; // whether the intersection of N2(v,w) and N(w) should be removed
+        bool fix_v = false;
+        bool fix_w = false;
         if(v_alone_dominates_n3 && w_alone_dominates_n3) { // case 1.1 of the paper
             // TODO: test if it is worth it to do anything here
             assert(fprintf(stderr, "rule 2 case 1.1 found, v->id == %zu,\tw->id == %zu\t==> do nothing\t\tcount_n2 == %zu, count_n3 == %zu\n",
@@ -588,7 +597,7 @@ static bool _rule_2_reduce_vertices(Graph* g, Vertex* v, Vertex* w)
                            v->id, w->id));
             remove_n3 = true;
             remove_n2_v = true;
-            _fix_vertex_and_mark_removed(g, v);
+            fix_v = true;
         }
         else if(w_alone_dominates_n3) { // case 1.3
             assert(fprintf(stderr, "rule 2 case 1.3 found, v->id == %zu,\tw->id == %zu\t==> fix w\n",
@@ -596,7 +605,7 @@ static bool _rule_2_reduce_vertices(Graph* g, Vertex* v, Vertex* w)
             assert(!v_alone_dominates_n3);
             remove_n3 = true;
             remove_n2_w = true;
-            _fix_vertex_and_mark_removed(g, w);
+            fix_w = true;
         }
         else { // case 2: neither v alone nor w alone dominates N3
             assert(fprintf(stderr, "rule 2 case 2 found, v->id == %zu,\tw->id == %zu\t==> fix v and w\n",
@@ -605,30 +614,32 @@ static bool _rule_2_reduce_vertices(Graph* g, Vertex* v, Vertex* w)
             remove_n3 = true;
             remove_n2_v = true;
             remove_n2_w = true;
-            _fix_vertices_and_mark_removed(g, v, w);
+            fix_v = true;
+            fix_w = true;
         }
-        if(count_n1 == 0 && (!v_and_w_are_adjacent)) { // intentionally not an else if
+        if(count_n1 == 0 && (!v_and_w_are_adjacent)) {
             // case I found myself, not from the paper. Isolated component consisting of just this neighborhood N[v, w]
-            if(v->status == UNDOMINATED && w->status == UNDOMINATED) {
+            if(v->dominated_by_number == 0 && w->dominated_by_number == 0) {
                 remove_n3 = true;
                 remove_n2_v = true;
                 remove_n2_w = true;
-                _fix_vertices_and_mark_removed(g, v, w);
+                fix_v = true;
+                fix_w = true;
             }
-            else if(v->status == UNDOMINATED) {
-                _fix_vertex_and_mark_removed(g, v);
+            else if(v->dominated_by_number == 0) {
+                fix_v = true;
                 remove_n2_v = true;
             }
-            else if(w->status == UNDOMINATED) {
+            else if(w->dominated_by_number == 0) {
                 remove_n2_w = true;
-                _fix_vertex_and_mark_removed(g, w);
+                fix_w = true;
             }
         }
 
 
         if(remove_n3) {
             for(size_t i = 0; i < count_n3; i++) {
-                if(n3[i]->status != REMOVED) {
+                if(!(n3[i]->is_removed)) {
                     _mark_vertex_removed(g, n3[i]);
                 }
             }
@@ -638,22 +649,32 @@ static bool _rule_2_reduce_vertices(Graph* g, Vertex* v, Vertex* w)
                 v->neighbors[i]->neighbor_tag = v->id;
             }
             for(size_t i = 0; i < count_n2; i++) {
-                if(n2[i]->status != REMOVED && n2[i]->neighbor_tag == v->id) {
+                if((!n2[i]->is_removed) && n2[i]->neighbor_tag == v->id) {
                     _mark_vertex_removed(g, n2[i]);
                 }
             }
         }
         if(remove_n2_w) {
             for(size_t i = 0; i < w->degree; i++) {
-                v->neighbors[i]->neighbor_tag = w->id;
+                w->neighbors[i]->neighbor_tag = w->id;
             }
             for(size_t i = 0; i < count_n2; i++) {
-                if(n2[i]->status != REMOVED && n2[i]->neighbor_tag == w->id) {
+                if((!n2[i]->is_removed) && n2[i]->neighbor_tag == w->id) {
                     _mark_vertex_removed(g, n2[i]);
                 }
             }
         }
-        result = remove_n3 || remove_n2_v || remove_n2_w;
+        if(fix_v && fix_w) {
+            _fix_vertices_and_mark_removed(g, v, w);
+        }
+        else if(fix_v) {
+            _fix_vertex_and_mark_removed(g, v);
+        }
+        else if(fix_w) {
+            _fix_vertex_and_mark_removed(g, w);
+        }
+        result = fix_v || fix_w;
+        assert(result == (remove_n3 || remove_n2_v || remove_n2_w));
     }
     free(n2);
     return result;
@@ -687,14 +708,14 @@ void reduce(Graph* g, float time_budget_total, float time_budget_rule2)
                 time_remaining_redundant = current_time < deadline_redundant;
             }
 
-            if(v->status == REMOVED) {
+            if(v->is_removed) {
                 _delete_and_free_vertex(g, v);
                 continue;
             }
             if(!time_remaining_redundant) {
                 continue;
             }
-            else if(v->status == DOMINATED && _is_redundant(v)) {
+            else if(v->dominated_by_number > 0 && _is_redundant(v)) {
                 _mark_vertex_removed(g, v);
                 another_loop = true;
                 continue;
@@ -709,18 +730,18 @@ void reduce(Graph* g, float time_budget_total, float time_budget_rule2)
 
             if(time_remaining_rule2) {
                 // TODO: I think this is inefficient but every other way of doing it that I have tried so far was slower
-                for(size_t i = 0; v->status != REMOVED && i < v->degree;) {
+                for(size_t i = 0; (!v->is_removed) && i < v->degree;) {
                     Vertex* u1 = v->neighbors[i++];
-                    if(u1->status != REMOVED && _rule_2_reduce_vertices(g, v, u1)) {
+                    assert(!u1->is_removed);
+                    if(_rule_2_reduce_vertices(g, v, u1)) {
                         another_loop = true;
                         i--; // stay at this index
                         continue;
                     }
-                    for(size_t j = i; v->status != REMOVED && j < v->degree; j++) {
+                    for(size_t j = i; (!v->is_removed) && j < v->degree; j++) {
                         Vertex* u2 = v->neighbors[j];
                         assert(u1 != u2 && u1 != v && u2 != v);
-                        if(u1->status != REMOVED && u2->status != REMOVED &&
-                           _rule_2_reduce_vertices(g, u1, u2)) {
+                        if((!u1->is_removed) && (!u2->is_removed) && _rule_2_reduce_vertices(g, u1, u2)) {
                             another_loop = true;
                             i = 0;
                             break;
