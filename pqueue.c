@@ -80,12 +80,12 @@ static void _pq_decr_allocated_n(PQueue* q)
 
 static inline void _pq_swap(PQueue* const q, const size_t node_a, const size_t node_b)
 {
-    KeyValPair* nodes = q->nodes;
-    KeyValPair tmp = nodes[node_a];
-    nodes[node_a] = nodes[node_b];
-    nodes[node_b] = tmp;
-    nodes[node_a].val->pq_kv_idx = node_a; // update the indices in the vertex structs
-    nodes[node_b].val->pq_kv_idx = node_b;
+    assert(node_a < q->n && node_b < q->n);
+    KeyValPair tmp = q->nodes[node_a];
+    q->nodes[node_a] = q->nodes[node_b];
+    q->nodes[node_b] = tmp;
+    q->nodes[node_a].val->pq_kv_idx = node_a; // update the indices in the vertex structs
+    q->nodes[node_b].val->pq_kv_idx = node_b;
 }
 
 
@@ -162,6 +162,9 @@ bool pq_is_empty(const PQueue* q)
 
 void pq_insert(PQueue* q, const KeyValPair new)
 {
+    assert(q != NULL);
+    assert(!(new.val->is_in_pq));
+    new.val->is_in_pq = true;
     if(q->n == q->allocated_n) {
         _pq_incr_allocated_n(q);
     }
@@ -195,11 +198,13 @@ KeyValPair pq_pop(PQueue* q)
     q->n--;
     if(q->n != 0) {
         q->nodes[0] = q->nodes[q->n];
+        q->nodes[0].val->pq_kv_idx = 0;
         _pq_heapify_node(q, 0);
     }
     if(q->n < q->allocated_n / PQ_DEALLOCATE_LIMIT) {
         _pq_decr_allocated_n(q);
     }
+    result.val->is_in_pq = false;
     return result;
 }
 
@@ -209,17 +214,20 @@ KeyValPair pq_pop(PQueue* q)
 pq_keytype pq_get_key(const PQueue* q, const Vertex* v)
 {
     assert(q != NULL && v != NULL);
+    assert(v->is_in_pq);
     assert(v->pq_kv_idx < q->n);
     return q->nodes[v->pq_kv_idx].key;
 }
 
 
 
+// v must be contained in q
 // May ONLY be used to decrease the priority of a vertex, i.e. make it come out later than it would without changing.
 void pq_decrease_priority(PQueue* q, Vertex* v, const pq_keytype new_key)
 {
     assert(q != NULL);
     assert(v != NULL);
+    assert(v->is_in_pq);
 #ifndef NDEBUG
     pq_keytype old_key = q->nodes[v->pq_kv_idx].key; // this variable is only used for asserts
     assert(!(q->keycmp(new_key, old_key)));
@@ -228,6 +236,7 @@ void pq_decrease_priority(PQueue* q, Vertex* v, const pq_keytype new_key)
 
     const size_t idx = v->pq_kv_idx;
     assert(idx < q->n);
+    assert(q->nodes[idx].val == v);
     q->nodes[idx].key = new_key;
     _pq_heapify_node(q, idx);
 

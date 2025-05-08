@@ -15,11 +15,11 @@ typedef enum { UNDOMINATED, DOMINATED, REMOVED } Status;
 
 typedef struct Vertex {
     size_t id; // the name of the vertex. Must be unique and must not be 0.
-    struct Vertex* list_prev;
-    struct Vertex* list_next;
-    size_t degree;             // this is the length of the array neighbors
+    struct Vertex* list_prev; // TODO: if possible, move to an array based storage instead of doubly linked list for smaller
+    struct Vertex* list_next; // Vertex structs and therefore better spacial locality of the data ==> better cache times
     struct Vertex** neighbors; // array of pointers to the neighbors
-    Status status;             // default is UNDOMINATED
+    size_t degree;             // this is the length of the array neighbors
+    size_t dominated_by_number; // the number of neighbors in the ds this vertex is dominated by. For use by the greedy solver.
     union {
         size_t neighbor_tag; /* For the reduction algorithm to be used as a temporary marker.
                                 This value must never be the id of an existing but non-neighboring vertex.
@@ -27,6 +27,8 @@ typedef struct Vertex {
         size_t pq_kv_idx;    /* May only be accessed by the internals of the priority queue.
                                 The index this vertex has inside the priority queue. */
     };
+    Status status; // default is UNDOMINATED
+    bool is_in_pq; // May be read by anyone but must not be changed by anything but the priority queue internals
 } Vertex;
 
 

@@ -20,10 +20,10 @@ BUILD_DIR = build
 TARGET = $(BUILD_DIR)/main
 
 # Source files
-SRCS = graph.c reduction.c pqueue.c main.c
+SRCS = graph.c reduction.c pqueue.c greedy.c main.c
 
 # Header files
-HDRS = graph.h reduction.h pqueue.h
+HDRS = graph.h reduction.h greedy.h pqueue.h
 
 # Object files
 OBJS = $(addprefix $(BUILD_DIR)/,$(SRCS:.c=.o))

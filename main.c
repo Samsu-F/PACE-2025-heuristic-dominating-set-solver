@@ -5,6 +5,7 @@
 
 #include "graph.h"
 #include "reduction.h"
+#include "greedy.h"
 
 
 
@@ -38,7 +39,7 @@ static bool verify_n_m_fixed(Graph* g)
 
 
 
-bool size_t_greater(const size_t a, const size_t b)
+bool size_t_greater_tmp(const size_t a, const size_t b)
 {
     return a > b;
 }
@@ -47,7 +48,7 @@ bool size_t_greater(const size_t a, const size_t b)
 
 static void test_pq(Graph* g)
 {
-    PQueue* pq = pq_new(size_t_greater);
+    PQueue* pq = pq_new(size_t_greater_tmp);
     assert(pq);
     for(Vertex* v = g->vertices; v != NULL; v = v->list_next) {
         pq_insert(pq, (KeyValPair) {.key = v->id + 100000000, .val = v});
@@ -69,6 +70,23 @@ static void test_pq(Graph* g)
 
 
 
+
+
+static void print_solution(Graph* g, VertexArray* va){
+    printf("%zu\n", g->count_fixed + va->size);
+    for(Vertex* v = g->fixed; v != NULL; v = v->list_next) {
+        printf("%zu\n", v->id);
+    }
+    for(size_t i = 0; i < va->size; i++){
+        printf("%zu\n", va->arr[i]->id);
+    }
+}
+
+
+
+
+
+// just some tests so far
 int main(int argc, char* argv[])
 {
     fprintf(stderr, "sizeof(Vertex) == %zu\n", sizeof(Vertex));
@@ -92,7 +110,6 @@ int main(int argc, char* argv[])
         input_file = stdin;
     }
 
-    // just some tests so far
 
     clock_t time_parsing_start = clock();
     Graph* g = graph_parse(input_file);
@@ -105,37 +122,54 @@ int main(int argc, char* argv[])
         exit(1);
     }
 
-    // verify_n_m_fixed(g);
     // test_pq(g);
+    verify_n_m_fixed(g);
 
     size_t input_n = g->n, input_m = g->m;
     clock_t time_reduction_start = clock();
 
-    reduce(g, 15.0f, 10.0f);
+    reduce(g, 15.0f, 0.0f); /////////////////////////////////////////////////////////////////////////
 
     clock_t time_reduction_end = clock();
     size_t reduced_n = g->n, reduced_m = g->m;
 
+    clock_t time_greedy_start = clock();
+    VertexArray ds = greedy(g);
+    clock_t time_greedy_end = clock();
+
+
+
     verify_n_m_fixed(g);
     // graph_print_as_dot(g, false, "Test");
-    graph_free(g);
+
+    print_solution(g, &ds);
+
 
 
     float ms_parse_input = (float)(1000 * (time_parsing_end - time_parsing_start)) / CLOCKS_PER_SEC;
     float ms_reduce = (float)(1000 * (time_reduction_end - time_reduction_start)) / CLOCKS_PER_SEC;
+    float ms_greedy = (float)(1000 * (time_greedy_end - time_greedy_start)) / CLOCKS_PER_SEC;
 
 
     fprintf(stderr, "%s\n", argc == 2 ? argv[1] : "stdin");
-    fprintf(stderr, "input:   n = %zu\tm = %zu\nreduced: n = %zu\tm = %zu\n", input_n, input_m,
-            reduced_n, reduced_m);
+    fprintf(stderr,
+            "input:   n = %zu\tm = %zu\n"
+            "reduced: n = %zu\tm = %zu\tcount_fixed = %zu\n"
+            "greedy: ds.size = %zu\tcount_fixed + ds.size = %zu\t\tds.allocated_size = %zu\n",
+            input_n, input_m, reduced_n, reduced_m, g->count_fixed, ds.size, g->count_fixed + ds.size, ds.allocated_size);
     fprintf(stderr,
             "---\n"
             "parse input:    %7.3f ms\n"
             "reduce:         %7.3f ms\n"
-            "\n\n\n",
-            ms_parse_input, ms_reduce);
+            "greedy:         %7.3f ms\n"
+            "\n\n",
+            ms_parse_input, ms_reduce, ms_greedy);
 
 
     // // csv mode
     // fprintf(stderr, "%zu,%zu,%.3f,%.3f\n", input_n, reduced_n, (double)reduced_n / (double)input_n, ms_reduce);
+
+
+    graph_free(g);
+    free(ds.arr);
 }
