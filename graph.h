@@ -11,18 +11,18 @@
 
 
 typedef struct Vertex {
-    size_t id; // the name of the vertex. Must be unique and must not be 0.
+    uint32_t id; // the name of the vertex. Must be unique and must not be 0.
     struct Vertex* list_prev; // TODO: if possible, move to an array based storage instead of doubly linked list for smaller
     struct Vertex* list_next; // Vertex structs and therefore better spacial locality of the data ==> better cache times
     struct Vertex** neighbors; // array of pointers to the neighbors
-    size_t degree;             // this is the length of the array neighbors
-    size_t dominated_by_number; // the number of neighbors in the ds this vertex is dominated by. For use by the greedy solver.
+    uint32_t degree;           // this is the length of the array neighbors
+    uint32_t dominated_by_number; // the number of neighbors in the ds this vertex is dominated by. For use by the greedy solver.
     union {
-        size_t neighbor_tag; /* For the reduction algorithm to be used as a temporary marker.
-                                This value must never be the id of an existing but non-neighboring vertex.
-                                0 is a valid value, because vertex ids must not be 0. */
-        size_t pq_kv_idx;    /* May only be accessed by the internals of the priority queue.
-                                The index this vertex has inside the priority queue. */
+        uint32_t neighbor_tag; /*   For the reduction algorithm to be used as a temporary marker.
+                                    This value must never be the id of an existing but non-neighboring vertex.
+                                    0 is a valid value, because vertex ids must not be 0. */
+        uint32_t pq_kv_idx;    /*   May only be accessed by the internals of the priority queue.
+                                    The index this vertex has inside the priority queue. */
     };
     union {
         bool is_removed; // for use during the reduction phase
@@ -33,10 +33,10 @@ typedef struct Vertex {
 
 typedef struct {
     // fixed vertices that were removed from the graph do not count towards n and m
-    size_t n;           // number of vertices remaining
-    size_t m;           // number of edges remaining
-    size_t count_fixed; // number of fixed vertices
-    Vertex* vertices; // list of vertices in the graph
+    uint32_t n;           // number of vertices remaining
+    uint32_t m;           // number of edges remaining
+    uint32_t count_fixed; // number of fixed vertices
+    Vertex* vertices;     // list of vertices in the graph
     Vertex* fixed; // list of vertices that are known to be optimal choices for any dominating set
 } Graph;
 

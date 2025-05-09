@@ -11,8 +11,8 @@
 // TODO: not sure if this struct is acutally a good idea
 typedef struct {
     Vertex** arr;
-    size_t size;
-    size_t allocated_size;
+    uint32_t size;
+    uint32_t allocated_size;
 } VertexArray;
 
 

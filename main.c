@@ -26,11 +26,11 @@ static bool verify_n_m_fixed(Graph* g)
     if((g->n != n) || (g->m != m) || (g->count_fixed != count_fixed)) {
         fprintf(stderr, "verification failed:\n");
         if(g->n != n)
-            fprintf(stderr, "\tn == %zu, g->n == %zu\n", n, g->n);
+            fprintf(stderr, "\tn == %zu, g->n == %" PRIu32 "\n", n, g->n);
         if(g->m != m)
-            fprintf(stderr, "\tm == %zu, g->m == %zu\n", m, g->m);
+            fprintf(stderr, "\tm == %zu, g->m == %" PRIu32 "\n", m, g->m);
         if(g->count_fixed != count_fixed)
-            fprintf(stderr, "\tcount_fixed == %zu, g->count_fixed == %zu\n", count_fixed, g->count_fixed);
+            fprintf(stderr, "\tcount_fixed == %zu, g->count_fixed == %" PRIu32 "\n", count_fixed, g->count_fixed);
         exit(1);
         return false;
     }
@@ -39,7 +39,7 @@ static bool verify_n_m_fixed(Graph* g)
 
 
 
-bool size_t_greater_tmp(const size_t a, const size_t b)
+bool uint32_t_greater_tmp(const uint32_t a, const uint32_t b)
 {
     return a > b;
 }
@@ -48,7 +48,7 @@ bool size_t_greater_tmp(const size_t a, const size_t b)
 
 static void test_pq(Graph* g)
 {
-    PQueue* pq = pq_new(size_t_greater_tmp);
+    PQueue* pq = pq_new(uint32_t_greater_tmp);
     assert(pq);
     for(Vertex* v = g->vertices; v != NULL; v = v->list_next) {
         pq_insert(pq, (KeyValPair) {.key = v->id + 100000000, .val = v});
@@ -61,7 +61,7 @@ static void test_pq(Graph* g)
     while(!pq_is_empty(pq)) {
         KeyValPair kv = pq_pop(pq);
         Vertex* v = kv.val;
-        fprintf(stderr, "kv.key == %zu\tv->id == %zu\tptr %p\n", kv.key, v->id, (void*)v);
+        fprintf(stderr, "kv.key == %" PRIu32 "\tv->id == %" PRIu32 "\tptr %p\n", kv.key, v->id, (void*)v);
         assert(kv.key % 10000000 == v->id);
         assert(((v->id % 10 != 0) && kv.key / 10000000 == v->id % 10) ||
                ((v->id % 10 == 0) && kv.key - 100000000 == v->id));
@@ -70,19 +70,16 @@ static void test_pq(Graph* g)
 
 
 
-
-
-static void print_solution(Graph* g, VertexArray* va){
-    printf("%zu\n", g->count_fixed + va->size);
+static void print_solution(Graph* g, VertexArray* va)
+{
+    printf("%" PRIu32 "\n", g->count_fixed + va->size);
     for(Vertex* v = g->fixed; v != NULL; v = v->list_next) {
-        printf("%zu\n", v->id);
+        printf("%" PRIu32 "\n", v->id);
     }
-    for(size_t i = 0; i < va->size; i++){
-        printf("%zu\n", va->arr[i]->id);
+    for(uint32_t i = 0; i < va->size; i++) {
+        printf("%" PRIu32 "\n", va->arr[i]->id);
     }
 }
-
-
 
 
 
@@ -125,13 +122,13 @@ int main(int argc, char* argv[])
     // test_pq(g);
     verify_n_m_fixed(g);
 
-    size_t input_n = g->n, input_m = g->m;
+    uint32_t input_n = g->n, input_m = g->m;
     clock_t time_reduction_start = clock();
 
     reduce(g, 15.0f, 10.0f); /////////////////////////////////////////////////////////////////////////
 
     clock_t time_reduction_end = clock();
-    size_t reduced_n = g->n, reduced_m = g->m;
+    uint32_t reduced_n = g->n, reduced_m = g->m;
 
     clock_t time_greedy_start = clock();
     VertexArray ds = greedy(g);
@@ -153,10 +150,12 @@ int main(int argc, char* argv[])
 
     fprintf(stderr, "%s\n", argc == 2 ? argv[1] : "stdin");
     fprintf(stderr,
-            "input:   n = %zu\tm = %zu\n"
-            "reduced: n = %zu\tm = %zu\tcount_fixed = %zu\n"
-            "greedy: ds.size = %zu\tcount_fixed + ds.size = %zu\t\tds.allocated_size = %zu\n",
-            input_n, input_m, reduced_n, reduced_m, g->count_fixed, ds.size, g->count_fixed + ds.size, ds.allocated_size);
+            "input:   n = %" PRIu32 "\tm = %" PRIu32 "\n"
+            "reduced: n = %" PRIu32 "\tm = %" PRIu32 "\tcount_fixed = %" PRIu32 "\n"
+            "greedy: ds.size = %" PRIu32 "\tcount_fixed + ds.size = %" PRIu32
+            "\t\tds.allocated_size = %" PRIu32 "\n",
+            input_n, input_m, reduced_n, reduced_m, g->count_fixed, ds.size,
+            g->count_fixed + ds.size, ds.allocated_size);
     fprintf(stderr,
             "---\n"
             "parse input:    %7.3f ms\n"
@@ -167,7 +166,7 @@ int main(int argc, char* argv[])
 
 
     // // csv mode
-    // fprintf(stderr, "%zu,%zu,%.3f,%.3f\n", input_n, reduced_n, (double)reduced_n / (double)input_n, ms_reduce);
+    // fprintf(stderr, "%" PRIu32 ",%" PRIu32 ",%.3f,%.3f\n", input_n, reduced_n, (double)reduced_n / (double)input_n, ms_reduce);
 
 
     graph_free(g);

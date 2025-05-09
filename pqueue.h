@@ -11,7 +11,7 @@
 
 
 
-#define PQ_KEY_TYPE size_t
+#define PQ_KEY_TYPE uint32_t
 
 
 

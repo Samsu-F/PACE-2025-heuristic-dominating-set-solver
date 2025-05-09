@@ -13,9 +13,9 @@
 static void _remove_edges(Graph* g, Vertex* v)
 {
     assert(v != NULL);
-    for(size_t i_v = 0; i_v < v->degree; i_v++) {
+    for(uint32_t i_v = 0; i_v < v->degree; i_v++) {
         Vertex* u = v->neighbors[i_v];
-        for(size_t i_u = 0; i_u < u->degree; i_u++) {
+        for(uint32_t i_u = 0; i_u < u->degree; i_u++) {
             if(u->neighbors[i_u] == v) {
                 u->neighbors[i_u] = u->neighbors[u->degree - 1]; // move the last arr elem here
                 u->degree--;                                     // shorten the array by one
@@ -79,7 +79,7 @@ static void _delete_and_free_vertex(Graph* g, Vertex* v)
 static void _mark_neighbors_dominated(Vertex* v)
 {
     assert(v != NULL);
-    for(size_t i = 0; i < v->degree; i++) {
+    for(uint32_t i = 0; i < v->degree; i++) {
         Vertex* u = v->neighbors[i];
         u->dominated_by_number++;
     }
@@ -91,7 +91,7 @@ static void _mark_neighbors_dominated(Vertex* v)
 // ignore_v and ignore_w must not be in vertices.
 // may change neighbor tags in the neighborhood of all u in vertices, and those of ignore_v and ignore_w.
 // ignore_v and ignore_w may be NULL if no or only one vertex needs to be ignored
-static bool _common_neighbor_exists(Vertex** vertices, size_t arr_size, Vertex* ignore_v, Vertex* ignore_w)
+static bool _common_neighbor_exists(Vertex** vertices, uint32_t arr_size, Vertex* ignore_v, Vertex* ignore_w)
 {
     assert(vertices != NULL);
     if(arr_size <= 1) {
@@ -99,7 +99,7 @@ static bool _common_neighbor_exists(Vertex** vertices, size_t arr_size, Vertex* 
     }
     Vertex* u0 = vertices[0];
     u0->neighbor_tag = u0->id;
-    for(size_t i = 0; i < u0->degree; i++) {
+    for(uint32_t i = 0; i < u0->degree; i++) {
         u0->neighbors[i]->neighbor_tag = u0->id;
     }
     if(ignore_v != NULL) { // disqualify v and w
@@ -108,11 +108,11 @@ static bool _common_neighbor_exists(Vertex** vertices, size_t arr_size, Vertex* 
     if(ignore_w != NULL) {
         ignore_w->neighbor_tag = 0;
     }
-    size_t prev_id = u0->id;
-    for(size_t i_vertices = 1; i_vertices < arr_size; i_vertices++) {
+    uint32_t prev_id = u0->id;
+    for(uint32_t i_vertices = 1; i_vertices < arr_size; i_vertices++) {
         Vertex* u = vertices[i_vertices];
         bool common_neighbor_found = false;
-        for(size_t i_u = 0; i_u < u->degree; i_u++) {
+        for(uint32_t i_u = 0; i_u < u->degree; i_u++) {
             if(u->neighbors[i_u]->neighbor_tag == prev_id) { // neighbor shared with all previous u in vertices (including u0)
                 common_neighbor_found = true;
                 u->neighbors[i_u]->neighbor_tag = u->id;
@@ -145,13 +145,13 @@ static bool _common_neighbor_exists(Vertex** vertices, size_t arr_size, Vertex* 
 static bool _is_redundant(Vertex* u)
 {
     assert(u != NULL && (!u->is_removed) && u->dominated_by_number > 0);
-    size_t count_undominated_neighbors = 0;
+    uint32_t count_undominated_neighbors = 0;
     Vertex** undominated_neighbors = malloc(u->degree * sizeof(Vertex*));
     if(!undominated_neighbors) {
         perror("_is_redundant: malloc failed");
         exit(1);
     }
-    for(size_t i = 0; i < u->degree; i++) {
+    for(uint32_t i = 0; i < u->degree; i++) {
         if(u->neighbors[i]->dominated_by_number == 0) {
             undominated_neighbors[count_undominated_neighbors++] = u->neighbors[i];
         }
@@ -164,7 +164,7 @@ static bool _is_redundant(Vertex* u)
 
 
 // creates a new Vertex holding id and inserts it at the start of g's fixed list
-static void _add_id_to_fixed(Graph* g, size_t id)
+static void _add_id_to_fixed(Graph* g, uint32_t id)
 {
     Vertex* v = malloc(sizeof(Vertex));
     if(!v) {
@@ -198,7 +198,7 @@ static void _fix_vertex_and_mark_removed(Graph* g, Vertex* v)
 
     if(v->degree != 0) {
         // save the array of neighbors
-        size_t count_neighbors = v->degree;
+        uint32_t count_neighbors = v->degree;
         Vertex** neighbors = malloc(v->degree * sizeof(Vertex*));
         if(!neighbors) {
             perror("_fix_vertex_and_mark_removed: malloc failed");
@@ -208,7 +208,7 @@ static void _fix_vertex_and_mark_removed(Graph* g, Vertex* v)
 
         _mark_vertex_removed(g, v); // after this point, v->degree == 0 and v->neighbors == NULL
 
-        for(size_t i = 0; i < count_neighbors; i++) {
+        for(uint32_t i = 0; i < count_neighbors; i++) {
             if(_is_redundant(neighbors[i])) {
                 _mark_vertex_removed(g, neighbors[i]);
             }
@@ -234,19 +234,19 @@ static void _fix_vertices_and_mark_removed(Graph* g, Vertex* v, Vertex* w)
     _mark_neighbors_dominated(w);
 
     // save the array of neighbors
-    size_t count_neighbors = v->degree + w->degree;
-    Vertex** neighbors = malloc(count_neighbors * sizeof(Vertex*));
+    uint32_t count_neighbors = v->degree + w->degree;
+    Vertex** neighbors = malloc((size_t)count_neighbors * sizeof(Vertex*));
     if(!neighbors) {
         perror("_fix_vertices_and_mark_removed: malloc failed");
         exit(1);
     }
-    memcpy(neighbors, v->neighbors, v->degree * sizeof(Vertex*));
-    memcpy(&(neighbors[v->degree]), w->neighbors, w->degree * sizeof(Vertex*));
+    memcpy(neighbors, v->neighbors, (size_t)v->degree * sizeof(Vertex*));
+    memcpy(&(neighbors[v->degree]), w->neighbors, (size_t)w->degree * sizeof(Vertex*));
 
     _mark_vertex_removed(g, v); // after this point, v->degree == 0 and v->neighbors == NULL
     _mark_vertex_removed(g, w); // after this point, w->degree == 0 and w->neighbors == NULL
 
-    for(size_t i = 0; i < count_neighbors; i++) {
+    for(uint32_t i = 0; i < count_neighbors; i++) {
         if((!neighbors[i]->is_removed) && _is_redundant(neighbors[i])) {
             _mark_vertex_removed(g, neighbors[i]);
         }
@@ -264,11 +264,11 @@ static void _fix_vertices_and_mark_removed(Graph* g, Vertex* v, Vertex* w)
 // every neighbor of u that is not a neighbor of v is already dominated.
 // However, if this returns 2 for u, then u must NOT be put in N3 because it may still get
 // dominated from the outside neighbor later.
-static int _is_in_n1_rule1(const size_t v_id, const Vertex* const u)
+static int _is_in_n1_rule1(const uint32_t v_id, const Vertex* const u)
 {
     assert(u != NULL);
     bool dominated_outside_neighbor_found = false;
-    for(size_t i = 0; i < u->degree; i++) {
+    for(uint32_t i = 0; i < u->degree; i++) {
         assert(!u->neighbors[i]->is_removed);
         if(u->neighbors[i]->neighbor_tag != v_id) {
             if(u->neighbors[i]->dominated_by_number == 0) {
@@ -295,12 +295,12 @@ static int _is_in_n1_rule1(const size_t v_id, const Vertex* const u)
 // every neighbor of u that is not a neighbor of v or w is already dominated.
 // However, if this returns 2 for u, then u must NOT be put in N3 because it may still get
 // dominated from the outside neighbor later.
-static int _is_in_n1_rule2(const size_t v_id, const size_t w_id, const Vertex* const u)
+static int _is_in_n1_rule2(const uint32_t v_id, const uint32_t w_id, const Vertex* const u)
 {
     assert(u != NULL);
     assert(v_id != w_id && u->id != v_id && u->id != w_id);
     bool dominated_outside_neighbor_found = false;
-    for(size_t i = 0; i < u->degree; i++) {
+    for(uint32_t i = 0; i < u->degree; i++) {
         assert(!u->neighbors[i]->is_removed);
         if(u->neighbors[i]->neighbor_tag != v_id && u->neighbors[i]->neighbor_tag != w_id) {
             if(u->neighbors[i]->dominated_by_number == 0) {
@@ -323,14 +323,14 @@ static int _is_in_n1_rule2(const size_t v_id, const size_t w_id, const Vertex* c
 // must only be called if x->neighbor_tag of any neighbor x of v is v_id iff x in N1(v).
 // v->neighbor_tag must be set to 0 before calling this function.
 // returns true iff u is in N2(v), i.e. iff u has any neighbor that is in N1(v).
-static bool _is_in_n2_rule1(const size_t v_id, const Vertex* const u)
+static bool _is_in_n2_rule1(const uint32_t v_id, const Vertex* const u)
 {
     assert(u != NULL);
     assert(!u->is_removed);
     if(u->dominated_by_number > 0) {
         return true; // only undominated vertices can be in N3
     }
-    for(size_t i = 0; i < u->degree; i++) {
+    for(uint32_t i = 0; i < u->degree; i++) {
         if(u->neighbors[i]->neighbor_tag == v_id) { // if u has any neighbor that is in N1
             assert(u->neighbors[i]->id != v_id); // assert the N1 neighbor found is in fact not v itself
             return true;
@@ -345,7 +345,7 @@ static bool _is_in_n2_rule1(const size_t v_id, const Vertex* const u)
 // must only be called if x->neighbor_tag of any x in N(v, w) is in {v_id, w_id} iff x in N1(v, w).
 // v->neighbor_tag and w->neighbor_tag must be set to 0 before calling this function.
 // returns true iff u is in N2(v, w), i.e. iff u has any neighbor that is in N1(v, w).
-static bool _is_in_n2_rule2(const size_t v_id, const size_t w_id, const Vertex* const u)
+static bool _is_in_n2_rule2(const uint32_t v_id, const uint32_t w_id, const Vertex* const u)
 {
     assert(u != NULL);
     assert(v_id != w_id && u->id != v_id && u->id != w_id);
@@ -353,7 +353,7 @@ static bool _is_in_n2_rule2(const size_t v_id, const size_t w_id, const Vertex* 
     if(u->dominated_by_number > 0) {
         return true; // only undominated vertices can be in N3
     }
-    for(size_t i = 0; i < u->degree; i++) {
+    for(uint32_t i = 0; i < u->degree; i++) {
         // if u has any neighbor that is in N1(v, w)
         if(u->neighbors[i]->neighbor_tag == v_id || u->neighbors[i]->neighbor_tag == w_id) {
             // assert the N1 neighbor found is in fact not v or w itself
@@ -401,11 +401,11 @@ static bool _rule_1_reduce_vertex(Graph* g, Vertex* v)
     size_t count_n2_only = 0, count_n2_n3_mixed = 0; // the number of elements in the arrays
 
     v->neighbor_tag = v->id;
-    for(size_t i = 0; i < v->degree; i++) {
+    for(uint32_t i = 0; i < v->degree; i++) {
         Vertex* u = v->neighbors[i];
         u->neighbor_tag = v->id;
     }
-    for(size_t i_v = 0; i_v < v->degree; i_v++) {
+    for(uint32_t i_v = 0; i_v < v->degree; i_v++) {
         Vertex* u = v->neighbors[i_v];
         switch(_is_in_n1_rule1(v->id, u)) {
             case 0:
@@ -501,21 +501,20 @@ static bool _rule_2_reduce_vertices(Graph* g, Vertex* v, Vertex* w)
         exit(1);
     }
     Vertex** n3 = &(n2[v->degree + w->degree]);
-    size_t count_n2 = 0, count_n3 = 0; // the number of elements in the arrays
+    size_t count_n1 = 0, count_n2 = 0, count_n3 = 0; // the number of elements in the arrays
 
     // tag all vertices in N[v,w]
     w->neighbor_tag = w->id; // tag w 's neighbors first, then those of v
-    for(size_t i = 0; i < w->degree; i++) {
+    for(uint32_t i = 0; i < w->degree; i++) {
         w->neighbors[i]->neighbor_tag = w->id;
     }
     v->neighbor_tag = v->id;
-    for(size_t i = 0; i < v->degree; i++) {
+    for(uint32_t i = 0; i < v->degree; i++) {
         v->neighbors[i]->neighbor_tag = v->id;
     }
     bool v_and_w_are_adjacent = (w->neighbor_tag == v->id);
 
-    size_t count_n1 = 0;
-    for(size_t i = 0; i < v->degree; i++) {
+    for(uint32_t i = 0; i < v->degree; i++) {
         Vertex* u = v->neighbors[i];
         if(u == v || u == w) {
             continue;
@@ -533,7 +532,7 @@ static bool _rule_2_reduce_vertices(Graph* g, Vertex* v, Vertex* w)
                 break;
         }
     }
-    for(size_t i = 0; i < w->degree; i++) {
+    for(uint32_t i = 0; i < w->degree; i++) {
         Vertex* u = w->neighbors[i];
         if(u == v || u == w || u->neighbor_tag != w->id) { // if u's tag is v's id, it is a neighbor of both v and w and was already tested
             continue;
@@ -588,19 +587,19 @@ static bool _rule_2_reduce_vertices(Graph* g, Vertex* v, Vertex* w)
         bool fix_w = false;
         if(v_alone_dominates_n3 && w_alone_dominates_n3) { // case 1.1 of the paper
             // TODO: test if it is worth it to do anything here
-            assert(fprintf(stderr, "rule 2 case 1.1 found, v->id == %zu,\tw->id == %zu\t==> do nothing\t\tcount_n2 == %zu, count_n3 == %zu\n",
+            assert(fprintf(stderr, "rule 2 case 1.1 found, v->id == %" PRIu32 ",\tw->id == %" PRIu32 "\t==> do nothing\t\tcount_n2 == %zu, count_n3 == %zu\n",
                            v->id, w->id, count_n2, count_n3));
         }
         else if(v_alone_dominates_n3) { // case 1.2
             assert(!w_alone_dominates_n3);
-            assert(fprintf(stderr, "rule 2 case 1.2 found, v->id == %zu,\tw->id == %zu\t==> fix v\n",
+            assert(fprintf(stderr, "rule 2 case 1.2 found, v->id == %" PRIu32 ",\tw->id == %" PRIu32 "\t==> fix v\n",
                            v->id, w->id));
             remove_n3 = true;
             remove_n2_v = true;
             fix_v = true;
         }
         else if(w_alone_dominates_n3) { // case 1.3
-            assert(fprintf(stderr, "rule 2 case 1.3 found, v->id == %zu,\tw->id == %zu\t==> fix w\n",
+            assert(fprintf(stderr, "rule 2 case 1.3 found, v->id == %" PRIu32 ",\tw->id == %" PRIu32 "\t==> fix w\n",
                            v->id, w->id));
             assert(!v_alone_dominates_n3);
             remove_n3 = true;
@@ -608,7 +607,7 @@ static bool _rule_2_reduce_vertices(Graph* g, Vertex* v, Vertex* w)
             fix_w = true;
         }
         else { // case 2: neither v alone nor w alone dominates N3
-            assert(fprintf(stderr, "rule 2 case 2 found, v->id == %zu,\tw->id == %zu\t==> fix v and w\n",
+            assert(fprintf(stderr, "rule 2 case 2 found, v->id == %" PRIu32 ",\tw->id == %" PRIu32 "\t==> fix v and w\n",
                            v->id, w->id));
             assert((!v_alone_dominates_n3) && (!w_alone_dominates_n3));
             remove_n3 = true;
@@ -730,7 +729,7 @@ void reduce(Graph* g, float time_budget_total, float time_budget_rule2)
 
             if(time_remaining_rule2) {
                 // TODO: I think this is inefficient but every other way of doing it that I have tried so far was slower
-                for(size_t i = 0; (!v->is_removed) && i < v->degree;) {
+                for(uint32_t i = 0; (!v->is_removed) && i < v->degree;) {
                     Vertex* u1 = v->neighbors[i++];
                     assert(!u1->is_removed);
                     if(_rule_2_reduce_vertices(g, v, u1)) {
@@ -738,7 +737,7 @@ void reduce(Graph* g, float time_budget_total, float time_budget_rule2)
                         i--; // stay at this index
                         continue;
                     }
-                    for(size_t j = i; (!v->is_removed) && j < v->degree; j++) {
+                    for(uint32_t j = i; (!v->is_removed) && j < v->degree; j++) {
                         Vertex* u2 = v->neighbors[j];
                         assert(u1 != u2 && u1 != v && u2 != v);
                         if((!u1->is_removed) && (!u2->is_removed) && _rule_2_reduce_vertices(g, u1, u2)) {
