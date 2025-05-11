@@ -31,7 +31,7 @@ typedef struct PQueue PQueue;
 
 // compare is a function to compare keys.
 // compare(key1, key2) == true iff key1 has greater priority than key2, i.e. it will be popped sooner.
-// pq_new may return NULL if not sucessfull. The returned value has to be freed using
+// pq_new may return NULL if not successful. The returned value has to be freed using
 // pq_free(...) if it is not NULL.
 PQueue* pq_new(PQKeyCompareFunc compare);
 

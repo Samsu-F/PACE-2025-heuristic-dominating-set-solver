@@ -4,8 +4,7 @@
 #include <string.h>
 #include <assert.h>
 #include <time.h>
-
-#include <stdio.h> // DEBUG
+#include <stdio.h>
 
 
 
@@ -36,14 +35,14 @@ static void _remove_edges(Graph* g, Vertex* v)
 
 
 // Removes the vertex from the graph, including deleting its edges and updating g->n and g->m.
-// This function does however not free v and does not delete it from the doubly linked vertex list, so
-// one can call this function on v and still iterate on the list using v->list_next and v->list_prev normally afterwards.
+// This function does however not free v and does not delete it from g->vertices,
+// neither does it change g->vertices in any other way.
+// does not update g->n
 static void _mark_vertex_removed(Graph* g, Vertex* v)
 {
     assert(v != NULL);
     assert(!(v->is_removed)); // wouldn't be a problem but it's a sign something went wrong
     if(!(v->is_removed)) {
-        g->n--;
         v->is_removed = true;
         _remove_edges(g, v);
     }
@@ -51,27 +50,22 @@ static void _mark_vertex_removed(Graph* g, Vertex* v)
 
 
 
-// does the pointer stuff to delete v from the vertices list and frees it afterwards
-// does not update g->n
+// deletes the Vertex pointer at vertices_idx from g->vertices and frees it, then moves the last
+// pointer in g->vertices to this index, and updates g->n;
 // must be called on a vertex only if it has beed marked removed using _mark_vertex_removed before
-static void _delete_and_free_vertex(Graph* g, Vertex* v)
+static void _delete_and_free_vertex(Graph* g, const uint32_t vertices_idx)
 {
-    assert(g != NULL && v != NULL);
-    assert(v->is_removed);
+    assert(g != NULL);
+    assert(vertices_idx < g->n);
+    Vertex* v = g->vertices[vertices_idx];
+    assert(v != NULL && v->is_removed);
     if(!v->is_removed) {
         _mark_vertex_removed(g, v);
     }
-    if(v->list_prev == NULL) { // if it is the head of the list
-        g->vertices = v->list_next;
-    }
-    else {                                      // not the list head
-        v->list_prev->list_next = v->list_next; // may be NULL
-    }
-    if(v->list_next != NULL) { // if it is not the last list element
-        v->list_next->list_prev = v->list_prev;
-    }
     assert(v->neighbors == NULL);
     free(v);
+    g->n--;
+    g->vertices[vertices_idx] = g->vertices[g->n];
 }
 
 
@@ -91,7 +85,7 @@ static void _mark_neighbors_dominated(Vertex* v)
 // ignore_v and ignore_w must not be in vertices.
 // may change neighbor tags in the neighborhood of all u in vertices, and those of ignore_v and ignore_w.
 // ignore_v and ignore_w may be NULL if no or only one vertex needs to be ignored
-static bool _common_neighbor_exists(Vertex** vertices, uint32_t arr_size, Vertex* ignore_v, Vertex* ignore_w)
+static bool _common_neighbor_exists(Vertex** vertices, size_t arr_size, Vertex* ignore_v, Vertex* ignore_w)
 {
     assert(vertices != NULL);
     if(arr_size <= 1) {
@@ -146,10 +140,10 @@ static bool _is_redundant(Vertex* u)
 {
     assert(u != NULL && (!u->is_removed) && u->dominated_by_number > 0);
     uint32_t count_undominated_neighbors = 0;
-    Vertex** undominated_neighbors = malloc(u->degree * sizeof(Vertex*));
+    Vertex** undominated_neighbors = malloc((size_t)u->degree * sizeof(Vertex*));
     if(!undominated_neighbors) {
         perror("_is_redundant: malloc failed");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     for(uint32_t i = 0; i < u->degree; i++) {
         if(u->neighbors[i]->dominated_by_number == 0) {
@@ -164,25 +158,19 @@ static bool _is_redundant(Vertex* u)
 
 
 // creates a new Vertex holding id and inserts it at the start of g's fixed list
-static void _add_id_to_fixed(Graph* g, uint32_t id)
+static void _add_id_to_fixed(Graph* g, uint32_t id, uint32_t dominated_by_number)
 {
     Vertex* v = malloc(sizeof(Vertex));
     if(!v) {
         perror("_add_id_to_fixed: malloc failed");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     v->id = id;
+    v->dominated_by_number = dominated_by_number;
     v->neighbors = NULL;
     v->degree = 0;
-    v->dominated_by_number = 1; // this is not the actual correct value, but this field will not be used anyway (hopefully)
 
-    v->list_prev = NULL;
-    v->list_next = g->fixed;
-    if(g->fixed != NULL) {
-        g->fixed->list_prev = v;
-    }
-    g->fixed = v;
-    g->count_fixed++;
+    da_add(&(g->fixed), v);
 }
 
 
@@ -193,16 +181,16 @@ static void _fix_vertex_and_mark_removed(Graph* g, Vertex* v)
 {
     assert(g != NULL && v != NULL);
     assert(!v->is_removed);
-    _add_id_to_fixed(g, v->id);
+    _add_id_to_fixed(g, v->id, v->dominated_by_number);
     _mark_neighbors_dominated(v);
 
     if(v->degree != 0) {
         // save the array of neighbors
         uint32_t count_neighbors = v->degree;
-        Vertex** neighbors = malloc(v->degree * sizeof(Vertex*));
+        Vertex** neighbors = malloc((size_t)v->degree * sizeof(Vertex*));
         if(!neighbors) {
             perror("_fix_vertex_and_mark_removed: malloc failed");
-            exit(1);
+            exit(EXIT_FAILURE);
         }
         memcpy(neighbors, v->neighbors, v->degree * sizeof(Vertex*));
 
@@ -228,8 +216,8 @@ static void _fix_vertices_and_mark_removed(Graph* g, Vertex* v, Vertex* w)
 {
     assert(g != NULL && v != NULL && w != NULL);
     assert((!v->is_removed) && (!w->is_removed));
-    _add_id_to_fixed(g, v->id);
-    _add_id_to_fixed(g, w->id);
+    _add_id_to_fixed(g, v->id, v->dominated_by_number);
+    _add_id_to_fixed(g, w->id, w->dominated_by_number);
     _mark_neighbors_dominated(v);
     _mark_neighbors_dominated(w);
 
@@ -238,7 +226,7 @@ static void _fix_vertices_and_mark_removed(Graph* g, Vertex* v, Vertex* w)
     Vertex** neighbors = malloc((size_t)count_neighbors * sizeof(Vertex*));
     if(!neighbors) {
         perror("_fix_vertices_and_mark_removed: malloc failed");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     memcpy(neighbors, v->neighbors, (size_t)v->degree * sizeof(Vertex*));
     memcpy(&(neighbors[v->degree]), w->neighbors, (size_t)w->degree * sizeof(Vertex*));
@@ -392,10 +380,10 @@ static bool _rule_1_reduce_vertex(Graph* g, Vertex* v)
     }
 
     // setup
-    Vertex** n2_only = malloc(2 * v->degree * sizeof(Vertex*)); // block allocation for n2_only and n2_n3_mixed
+    Vertex** n2_only = malloc(2 * (size_t)v->degree * sizeof(Vertex*)); // block allocation for n2_only and n2_n3_mixed
     if(!n2_only) {
         perror("_rule_1_reduce_vertex: malloc failed");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     Vertex** n2_n3_mixed = &(n2_only[v->degree]);
     size_t count_n2_only = 0, count_n2_n3_mixed = 0; // the number of elements in the arrays
@@ -495,10 +483,10 @@ static bool _rule_2_reduce_vertices(Graph* g, Vertex* v, Vertex* w)
     // assert(v->degree >= 2 && w->degree >= 2);  ///// DEBUG, put it back ///// DEBUG, put it back ///// DEBUG, put it back ///// DEBUG, put it back ///// DEBUG, put it back ///// DEBUG, put it back /////
 
     // setup
-    Vertex** n2 = malloc(2 * (v->degree + w->degree) * sizeof(Vertex*)); // block allocation for n2 and n3
+    Vertex** n2 = malloc(2 * (size_t)(v->degree + w->degree) * sizeof(Vertex*)); // block allocation for n2 and n3
     if(!n2) {
         perror("_rule_2_reduce_vertices: malloc failed");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     Vertex** n3 = &(n2[v->degree + w->degree]);
     size_t count_n1 = 0, count_n2 = 0, count_n3 = 0; // the number of elements in the arrays
@@ -696,9 +684,10 @@ void reduce(Graph* g, float time_budget_total, float time_budget_rule2)
         // re-checking everything, so it might not be worth the computation time. But on the other hand, it
         // does not take much computation time and even small improvements now could be very benefitial later.
         another_loop = false;
-        Vertex* next;
-        for(Vertex* v = g->vertices; v != NULL; v = next) {
-            next = v->list_next;
+        uint32_t next_vertices_idx;
+        for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx = next_vertices_idx) {
+            Vertex* v = g->vertices[vertices_idx];
+            next_vertices_idx = vertices_idx + 1;
 
             if((loop_iteration++ % 256) == 0) {
                 clock_t current_time = clock();
@@ -708,7 +697,8 @@ void reduce(Graph* g, float time_budget_total, float time_budget_rule2)
             }
 
             if(v->is_removed) {
-                _delete_and_free_vertex(g, v);
+                _delete_and_free_vertex(g, vertices_idx);
+                next_vertices_idx = vertices_idx; // stay, a new pointer was just moved there
                 continue;
             }
             if(!time_remaining_redundant) {

@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
 
 
 
@@ -12,29 +13,26 @@ typedef struct Edge {
 
 
 
-// helper
-static void _graph_free_vertex_list(Vertex* list_head)
-{
-    Vertex* v = list_head;
-    while(v != NULL) {
-        Vertex* to_free = v;
-        v = v->list_next;
-        if(to_free->neighbors != NULL) {
-            free(to_free->neighbors);
-        }
-        free(to_free);
-    }
-}
-
 // free graph, all of its vertices and their internals
 // g must not be NULL
 void graph_free(Graph* g)
 {
     assert(g);
-    _graph_free_vertex_list(g->vertices);
-    _graph_free_vertex_list(g->fixed);
+    for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
+        Vertex* v = g->vertices[vertices_idx];
+        if(v->neighbors != NULL) {
+            free(v->neighbors);
+        }
+        free(v);
+    }
+    free(g->vertices);
     g->vertices = NULL;
-    g->fixed = NULL;
+    for(size_t fixed_idx = 0; fixed_idx < g->fixed.size; fixed_idx++) {
+        Vertex* v = g->fixed.vertices[fixed_idx];
+        assert(v->neighbors == NULL);
+        free(v);
+    }
+    da_free_internals(&(g->fixed));
     free(g);
 }
 
@@ -56,6 +54,9 @@ Graph* graph_parse(FILE* file)
 {
     Graph* g = calloc(1, sizeof(Graph));
     if(!g) {
+        return NULL;
+    }
+    if(!da_init(&(g->fixed), 128)) { // initial_capacity = 128 is arbitrary but seems reasonable
         return NULL;
     }
 
@@ -81,7 +82,7 @@ Graph* graph_parse(FILE* file)
     fscanf(file, "%" SCNuMAX "%" SCNuMAX "\n", &tmp_n, &tmp_m); // n and m
     if((tmp_n > (uintmax_t)UINT32_MAX) || (tmp_m > (uintmax_t)UINT32_MAX)) {
         fprintf(stderr, "graph_parse_stdin: uint32_t is not large enough to hold number of vertices/edges.");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     n = (uint32_t)tmp_n;
     m = (uint32_t)tmp_m;
@@ -89,25 +90,21 @@ Graph* graph_parse(FILE* file)
     g->m = m;
 
     // make a temporary array in order to efficiently access the vertices by their id
-    Vertex** tmp_vertex_arr = calloc(n + 1, sizeof(Vertex*));
+    Vertex** tmp_vertex_arr_by_id = calloc(n + 1, sizeof(Vertex*));
+    g->vertices = malloc(n * sizeof(Vertex*));
     Edge* edges = calloc(m, sizeof(Edge));               // temporary array for the edges
     uint32_t* degrees = calloc(n + 1, sizeof(uint32_t)); // temporary array to keep track of the degrees
-    if(tmp_vertex_arr == NULL || edges == NULL || degrees == NULL) {
-        perror("graph_parse_stdin: allocating temporary array failed");
-        exit(1);
+    if(tmp_vertex_arr_by_id == NULL || g->vertices == NULL || edges == NULL || degrees == NULL) {
+        perror("graph_parse_stdin: allocating array failed");
+        exit(EXIT_FAILURE);
     }
+
     for(uint32_t id = 1; id < n + 1; id++) {
-        if(!(tmp_vertex_arr[id] = calloc(1, sizeof(Vertex)))) {
+        if(!(tmp_vertex_arr_by_id[id] = calloc(1, sizeof(Vertex)))) {
             perror("graph_parse_stdin: allocating memory for a single Vertex failed");
-            exit(1);
+            exit(EXIT_FAILURE);
         }
-        tmp_vertex_arr[id]->id = id; // initialize all non-zero data of the vertex
-    }
-    // link them to form a doubly linked list
-    g->vertices = tmp_vertex_arr[1];
-    for(uint32_t i = 1; i < n; i++) {
-        tmp_vertex_arr[i]->list_next = tmp_vertex_arr[i + 1];
-        tmp_vertex_arr[i + 1]->list_prev = tmp_vertex_arr[i];
+        tmp_vertex_arr_by_id[id]->id = id; // initialize all non-zero data of the vertex
     }
 
     // continue parsing
@@ -116,16 +113,16 @@ Graph* graph_parse(FILE* file)
         if(fscanf(file, "\t%" SCNu32 " %" SCNu32 "\n", &u_id, &v_id) != 2) {
             assert(false);
         }
-        edges[i].a = tmp_vertex_arr[u_id];
-        edges[i].b = tmp_vertex_arr[v_id];
+        edges[i].a = tmp_vertex_arr_by_id[u_id];
+        edges[i].b = tmp_vertex_arr_by_id[v_id];
         degrees[u_id]++;
         degrees[v_id]++;
     }
     for(uint32_t id = 1; id <= n; id++) {
         if(degrees[id] > 0) {
-            if(!(tmp_vertex_arr[id]->neighbors = malloc(degrees[id] * sizeof(Vertex*)))) {
+            if(!(tmp_vertex_arr_by_id[id]->neighbors = malloc((size_t)degrees[id] * sizeof(Vertex*)))) {
                 perror("graph_parse_stdin: allocating neighbors array of a vertex failed");
-                exit(1);
+                exit(EXIT_FAILURE);
             }
         }
     }
@@ -133,7 +130,8 @@ Graph* graph_parse(FILE* file)
         _graph_add_edge(edges[i].a, edges[i].b);
     }
 
-    free(tmp_vertex_arr);
+    memcpy(g->vertices, &(tmp_vertex_arr_by_id[1]), (size_t)n * sizeof(Vertex*));
+    free(tmp_vertex_arr_by_id);
     free(edges);
     free(degrees);
     return g;
@@ -144,20 +142,23 @@ Graph* graph_parse(FILE* file)
 // debug function
 // graph_name is optional and can be NULL
 // dominated vertices will green, fixed verticed will be cyan, and removed vertices will be red
-void graph_print_as_dot(Graph* g, bool include_fixed, const char* graph_name)
+void graph_print_as_dot(Graph* g, const bool include_fixed, const char* graph_name)
 {
     assert(g);
     printf("graph %s {", graph_name ? graph_name : "G");
-    for(Vertex* v = g->vertices; v != NULL; v = v->list_next) {
+    for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
+        Vertex* v = g->vertices[vertices_idx];
         printf("\n\t%" PRIu32 "", v->id);
         if(v->dominated_by_number > 0) {
             printf("[style=filled, fillcolor=green]");
         }
     }
-    for(Vertex* v = g->fixed; include_fixed && v != NULL; v = v->list_next) {
+    for(size_t fixed_idx = 0; include_fixed && fixed_idx < g->fixed.size; fixed_idx++) {
+        Vertex* v = g->fixed.vertices[fixed_idx];
         printf("\n\t%" PRIu32 "[style=filled, fillcolor=cyan]", v->id);
     }
-    for(Vertex* v = g->vertices; v != NULL; v = v->list_next) {
+    for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
+        Vertex* v = g->vertices[vertices_idx];
         for(uint32_t i = 0; i < v->degree; i++) {
             Vertex* u = v->neighbors[i];
             if(u->id >= v->id) { // doesnt matter if we check for >= or <=, we just don't want both directions to be printed
@@ -165,7 +166,8 @@ void graph_print_as_dot(Graph* g, bool include_fixed, const char* graph_name)
             }
         }
     }
-    for(Vertex* v = g->fixed; include_fixed && v != NULL; v = v->list_next) {
+    for(size_t fixed_idx = 0; include_fixed && fixed_idx < g->fixed.size; fixed_idx++) {
+        Vertex* v = g->fixed.vertices[fixed_idx];
         for(uint32_t i = 0; i < v->degree; i++) {
             Vertex* u = v->neighbors[i];
             if(u->id >= v->id) { // doesnt matter if we check for >= or <=, we just don't want both directions to be printed

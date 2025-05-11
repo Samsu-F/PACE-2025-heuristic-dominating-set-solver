@@ -7,14 +7,13 @@
 #include <stdio.h>
 
 #include "pqueue.h"
+#include "dynamic_array.h"
 
 
 
 typedef struct Vertex {
-    uint32_t id; // the name of the vertex. Must be unique and must not be 0.
-    struct Vertex* list_prev; // TODO: if possible, move to an array based storage instead of doubly linked list for smaller
-    struct Vertex* list_next; // Vertex structs and therefore better spacial locality of the data ==> better cache times
     struct Vertex** neighbors; // array of pointers to the neighbors
+    uint32_t id;               // the name of the vertex. Must be unique and must not be 0.
     uint32_t degree;           // this is the length of the array neighbors
     uint32_t dominated_by_number; // the number of neighbors in the ds this vertex is dominated by. For use by the greedy solver.
     union {
@@ -32,12 +31,11 @@ typedef struct Vertex {
 
 
 typedef struct {
+    Vertex** vertices; // array of vertices in the graph
+    DynamicArray fixed; // list of vertices that are known to be optimal choices for any dominating set
     // fixed vertices that were removed from the graph do not count towards n and m
     uint32_t n;           // number of vertices remaining
     uint32_t m;           // number of edges remaining
-    uint32_t count_fixed; // number of fixed vertices
-    Vertex* vertices;     // list of vertices in the graph
-    Vertex* fixed; // list of vertices that are known to be optimal choices for any dominating set
 } Graph;
 
 

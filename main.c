@@ -9,29 +9,17 @@
 
 
 
-static bool verify_n_m_fixed(Graph* g)
+static bool verify_m(Graph* g)
 {
-    size_t n = 0;
     size_t m = 0;
-    size_t count_fixed = 0;
-
-    for(Vertex* v = g->vertices; v != NULL; v = v->list_next) {
-        n++;
+    for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
+        Vertex* v = g->vertices[vertices_idx];
         m += v->degree;
     }
-    for(Vertex* v = g->fixed; v != NULL; v = v->list_next) {
-        count_fixed++;
-    }
     m /= 2; // each edge was counted twice
-    if((g->n != n) || (g->m != m) || (g->count_fixed != count_fixed)) {
-        fprintf(stderr, "verification failed:\n");
-        if(g->n != n)
-            fprintf(stderr, "\tn == %zu, g->n == %" PRIu32 "\n", n, g->n);
-        if(g->m != m)
-            fprintf(stderr, "\tm == %zu, g->m == %" PRIu32 "\n", m, g->m);
-        if(g->count_fixed != count_fixed)
-            fprintf(stderr, "\tcount_fixed == %zu, g->count_fixed == %" PRIu32 "\n", count_fixed, g->count_fixed);
-        exit(1);
+    if(g->m != m) {
+        fprintf(stderr, "verification failed:\n\tm == %zu, g->m == %" PRIu32 "\n", m, g->m);
+        exit(EXIT_FAILURE);
         return false;
     }
     return true;
@@ -50,10 +38,12 @@ static void test_pq(Graph* g)
 {
     PQueue* pq = pq_new(uint32_t_greater_tmp);
     assert(pq);
-    for(Vertex* v = g->vertices; v != NULL; v = v->list_next) {
+    for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
+        Vertex* v = g->vertices[vertices_idx];
         pq_insert(pq, (KeyValPair) {.key = v->id + 100000000, .val = v});
     }
-    for(Vertex* v = g->vertices; v != NULL; v = v->list_next) {
+    for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
+        Vertex* v = g->vertices[vertices_idx];
         if(v->id % 10 > 0) {
             pq_decrease_priority(pq, v, pq_get_key(pq, v) - 100000000 + (v->id % 10) * 10000000);
         }
@@ -72,8 +62,9 @@ static void test_pq(Graph* g)
 
 static void print_solution(Graph* g, VertexArray* va)
 {
-    printf("%" PRIu32 "\n", g->count_fixed + va->size);
-    for(Vertex* v = g->fixed; v != NULL; v = v->list_next) {
+    printf("%zu\n", g->fixed.size + (size_t)va->size);
+    for(size_t fixed_idx = 0; fixed_idx < g->fixed.size; fixed_idx++) {
+        Vertex* v = g->fixed.vertices[fixed_idx];
         printf("%" PRIu32 "\n", v->id);
     }
     for(uint32_t i = 0; i < va->size; i++) {
@@ -116,11 +107,11 @@ int main(int argc, char* argv[])
         fclose(input_file);
     }
     if(!g) {
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     // test_pq(g);
-    verify_n_m_fixed(g);
+    verify_m(g);
 
     uint32_t input_n = g->n, input_m = g->m;
     clock_t time_reduction_start = clock();
@@ -136,7 +127,7 @@ int main(int argc, char* argv[])
 
 
 
-    verify_n_m_fixed(g);
+    verify_m(g);
     // graph_print_as_dot(g, false, "Test");
 
     print_solution(g, &ds);
@@ -151,11 +142,11 @@ int main(int argc, char* argv[])
     fprintf(stderr, "%s\n", argc == 2 ? argv[1] : "stdin");
     fprintf(stderr,
             "input:   n = %" PRIu32 "\tm = %" PRIu32 "\n"
-            "reduced: n = %" PRIu32 "\tm = %" PRIu32 "\tcount_fixed = %" PRIu32 "\n"
-            "greedy: ds.size = %" PRIu32 "\tcount_fixed + ds.size = %" PRIu32
+            "reduced: n = %" PRIu32 "\tm = %" PRIu32 "\tfixed.size = %zu\n"
+            "greedy: ds.size = %" PRIu32 "\tfixed.size + ds.size = %zu"
             "\t\tds.allocated_size = %" PRIu32 "\n",
-            input_n, input_m, reduced_n, reduced_m, g->count_fixed, ds.size,
-            g->count_fixed + ds.size, ds.allocated_size);
+            input_n, input_m, reduced_n, reduced_m, g->fixed.size, ds.size,
+            g->fixed.size + ds.size, ds.allocated_size);
     fprintf(stderr,
             "---\n"
             "parse input:    %7.3f ms\n"

@@ -84,8 +84,8 @@ static inline void _pq_swap(PQueue* const q, const size_t node_a, const size_t n
     KeyValPair tmp = q->nodes[node_a];
     q->nodes[node_a] = q->nodes[node_b];
     q->nodes[node_b] = tmp;
-    q->nodes[node_a].val->pq_kv_idx = node_a; // update the indices in the vertex structs
-    q->nodes[node_b].val->pq_kv_idx = node_b;
+    q->nodes[node_a].val->pq_kv_idx = (uint32_t)node_a; // update the indices in the vertex structs
+    q->nodes[node_b].val->pq_kv_idx = (uint32_t)node_b;
 }
 
 
@@ -171,7 +171,7 @@ void pq_insert(PQueue* q, const KeyValPair new)
     size_t idx_new = q->n;
     q->n++;
     q->nodes[idx_new] = new;
-    q->nodes[idx_new].val->pq_kv_idx = idx_new; // set the index saved in the vertex struct
+    q->nodes[idx_new].val->pq_kv_idx = (uint32_t)idx_new; // set the index saved in the vertex struct
     while(idx_new != 0 && q->keycmp(new.key, q->nodes[_pq_parent(idx_new)].key)) {
         size_t idx_parent = _pq_parent(idx_new);
         _pq_swap(q, idx_new, idx_parent);

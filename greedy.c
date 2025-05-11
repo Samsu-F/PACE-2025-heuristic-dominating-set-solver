@@ -18,9 +18,10 @@ VertexArray greedy(Graph* g)
     PQueue* pq = pq_new(uint32_t_greater);
     if(!pq) {
         perror("greedy: pq_new failed");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
-    for(Vertex* v = g->vertices; v != NULL; v = v->list_next) {
+    for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
+        Vertex* v = g->vertices[vertices_idx];
         assert(!v->is_in_pq);               // this is the same data as v->is_removed
         uint32_t undominated_neighbors = 0; // including itself if v is undominated
         if(v->dominated_by_number == 0) {
@@ -41,7 +42,7 @@ VertexArray greedy(Graph* g)
     ds.arr = malloc(undominated_vertices * sizeof(Vertex*));
     if(!ds.arr) {
         perror("greedy: malloc failed");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
 
