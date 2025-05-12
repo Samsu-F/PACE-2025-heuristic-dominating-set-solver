@@ -12,7 +12,7 @@ bool uint32_t_greater(const uint32_t a, const uint32_t b)
 
 
 
-VertexArray greedy(Graph* g)
+DynamicArray greedy(Graph* g)
 {
     uint32_t undominated_vertices = 0; // the total number of undominated vertices remaining in the graph
     PQueue* pq = pq_new(uint32_t_greater);
@@ -36,12 +36,9 @@ VertexArray greedy(Graph* g)
         pq_insert(pq, (KeyValPair) {.key = undominated_neighbors, .val = v});
     }
 
-    VertexArray ds;
-    ds.size = 0;
-    ds.allocated_size = undominated_vertices;
-    ds.arr = malloc(undominated_vertices * sizeof(Vertex*));
-    if(!ds.arr) {
-        perror("greedy: malloc failed");
+    DynamicArray ds;
+    if(!da_init(&ds, 64)) {
+        perror("greedy: da_init failed");
         exit(EXIT_FAILURE);
     }
 
@@ -51,8 +48,7 @@ VertexArray greedy(Graph* g)
         KeyValPair kv = pq_pop(pq);
         Vertex* v = kv.val;
         // uint32_t undominated_neighbors = kv.key; // not needed so far
-        assert(ds.size < ds.allocated_size);
-        ds.arr[ds.size++] = v;
+        da_add(&ds, v);
         uint32_t v_is_newly_dominated = 0;
         v->dominated_by_number++;
         if(v->dominated_by_number == 1) {

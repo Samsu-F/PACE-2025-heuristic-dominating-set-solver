@@ -6,18 +6,11 @@
 
 #include "graph.h"
 #include "pqueue.h"
-
-
-// TODO: not sure if this struct is acutally a good idea
-typedef struct {
-    Vertex** arr;
-    uint32_t size;
-    uint32_t allocated_size;
-} VertexArray;
+#include "dynamic_array.h"
 
 
 
-VertexArray greedy(Graph* g);
+DynamicArray greedy(Graph* g);
 
 
 

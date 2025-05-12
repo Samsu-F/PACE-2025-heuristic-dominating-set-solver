@@ -60,15 +60,15 @@ static void test_pq(Graph* g)
 
 
 
-static void print_solution(Graph* g, VertexArray* va)
+static void print_solution(Graph* g, DynamicArray* da)
 {
-    printf("%zu\n", g->fixed.size + (size_t)va->size);
+    printf("%zu\n", g->fixed.size + (size_t)da->size);
     for(size_t fixed_idx = 0; fixed_idx < g->fixed.size; fixed_idx++) {
         Vertex* v = g->fixed.vertices[fixed_idx];
         printf("%" PRIu32 "\n", v->id);
     }
-    for(uint32_t i = 0; i < va->size; i++) {
-        printf("%" PRIu32 "\n", va->arr[i]->id);
+    for(size_t i = 0; i < da->size; i++) {
+        printf("%" PRIu32 "\n", da->vertices[i]->id);
     }
 }
 
@@ -122,7 +122,7 @@ int main(int argc, char* argv[])
     uint32_t reduced_n = g->n, reduced_m = g->m;
 
     clock_t time_greedy_start = clock();
-    VertexArray ds = greedy(g);
+    DynamicArray ds = greedy(g);
     clock_t time_greedy_end = clock();
 
 
@@ -143,10 +143,10 @@ int main(int argc, char* argv[])
     fprintf(stderr,
             "input:   n = %" PRIu32 "\tm = %" PRIu32 "\n"
             "reduced: n = %" PRIu32 "\tm = %" PRIu32 "\tfixed.size = %zu\n"
-            "greedy: ds.size = %" PRIu32 "\tfixed.size + ds.size = %zu"
-            "\t\tds.allocated_size = %" PRIu32 "\n",
+            "greedy: ds.size = %zu\tfixed.size + ds.size = %zu"
+            "\t\tds.capacizy = %zu\n",
             input_n, input_m, reduced_n, reduced_m, g->fixed.size, ds.size,
-            g->fixed.size + ds.size, ds.allocated_size);
+            g->fixed.size + ds.size, ds.capacity);
     fprintf(stderr,
             "---\n"
             "parse input:    %7.3f ms\n"
@@ -161,5 +161,5 @@ int main(int argc, char* argv[])
 
 
     graph_free(g);
-    free(ds.arr);
+    da_free_internals(&ds);
 }
