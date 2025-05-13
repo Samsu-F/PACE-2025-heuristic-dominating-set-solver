@@ -1,6 +1,38 @@
 #include "greedy.h"
 
 #include <stdbool.h>
+#include <stdlib.h>
+#include <assert.h>
+
+
+
+static void _make_minimal(DynamicArray* ds)
+{
+    assert(ds != NULL);
+    for(size_t i_ds = 0, i_ds_next = 0; i_ds < ds->size; i_ds = i_ds_next) {
+        i_ds_next = i_ds + 1;
+        Vertex* v = ds->vertices[i_ds];
+        if(v->dominated_by_number > 1) {
+            bool v_redundant = true;
+            for(uint32_t i_v = 0; i_v < v->degree; i_v++) {
+                if(v->neighbors[i_v]->dominated_by_number < 2) {
+                    assert(v->neighbors[i_v]->dominated_by_number >= 1); // otherwise ds would not be a dominating set
+                    v_redundant = false;
+                    break;
+                }
+            }
+            if(v_redundant) {
+                v->dominated_by_number--;
+                for(uint32_t i_v = 0; i_v < v->degree; i_v++) {
+                    v->neighbors[i_v]->dominated_by_number--;
+                }
+                ds->size--;
+                ds->vertices[i_ds] = ds->vertices[ds->size];
+                i_ds_next = i_ds; // stay at the index where the formerly last element was just moved to
+            }
+        }
+    }
+}
 
 
 
@@ -78,5 +110,6 @@ DynamicArray greedy(Graph* g)
         }
     }
     pq_free(pq);
+    _make_minimal(&ds);
     return ds;
 }

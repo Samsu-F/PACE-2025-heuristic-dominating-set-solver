@@ -143,10 +143,8 @@ int main(int argc, char* argv[])
     fprintf(stderr,
             "input:   n = %" PRIu32 "\tm = %" PRIu32 "\n"
             "reduced: n = %" PRIu32 "\tm = %" PRIu32 "\tfixed.size = %zu\n"
-            "greedy: ds.size = %zu\tfixed.size + ds.size = %zu"
-            "\t\tds.capacizy = %zu\n",
-            input_n, input_m, reduced_n, reduced_m, g->fixed.size, ds.size,
-            g->fixed.size + ds.size, ds.capacity);
+            "greedy: ds.size = %zu\tfixed.size + ds.size = %zu",
+            input_n, input_m, reduced_n, reduced_m, g->fixed.size, ds.size, g->fixed.size + ds.size);
     fprintf(stderr,
             "---\n"
             "parse input:    %7.3f ms\n"
