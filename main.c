@@ -6,6 +6,7 @@
 #include "graph.h"
 #include "reduction.h"
 #include "greedy.h"
+#include "weighted_sampling_tree.h" // for debugging and testing
 
 
 
@@ -56,6 +57,56 @@ static void test_pq(Graph* g)
         assert(((v->id % 10 != 0) && kv.key / 10000000 == v->id % 10) ||
                ((v->id % 10 == 0) && kv.key - 100000000 == v->id));
     }
+}
+
+
+
+static void test_weighted_sampling_tree(Graph* g)
+{
+    srand((unsigned)time(NULL));
+
+    double* weights = malloc(g->n * sizeof(double));
+    assert(weights);
+    for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
+        Vertex* v = g->vertices[vertices_idx];
+        weights[vertices_idx] = (double)v->id;
+    }
+    WeightedSamplingTree* wst = wst_new(weights, g->n);
+    assert(wst);
+    for(size_t i = 0; i < 200; i++) {
+        size_t index = wst_sample_with_replacement(wst);
+        fprintf(stderr, "sample with replacement: index %zu\tid == %" PRIu32 "\n", index,
+                g->vertices[index]->id);
+    }
+    for(size_t i = 0; i < g->n - 1; i++) {
+        size_t index = wst_sample_without_replacement(wst);
+        fprintf(stderr, "sample without replacement: index %zu\tid == %" PRIu32 "\t\t\tg->n == %" PRIu32 ",\ti == %zu\n",
+                index, g->vertices[index]->id, g->n, i);
+    }
+    fprintf(stderr, "expecting an assertion fail now:\n");
+    size_t index = wst_sample_without_replacement(wst);
+    fprintf(stderr, "no error occurred, this should not happen.\n");
+
+
+    // size_t size = 10000;
+    // double* weights = malloc(size * sizeof(double));
+    // assert(weights);
+    // for(size_t i = 0; i < size; i++) {
+    //     weights[i] = 2.0 * (double)i;
+    // }
+    // WeightedSamplingTree* wst = wst_new(weights, size);
+    // assert(wst);
+    // for(size_t i = 0; i < 20; i++) {
+    //     size_t index = wst_sample_with_replacement(wst);
+    //     fprintf(stderr, "sample with replacement: index %zu\n", index);
+    // }
+    // for(size_t i = 0; i < size - 1; i++) {
+    //     size_t index = wst_sample_without_replacement(wst);
+    //     fprintf(stderr, "sample without replacement: index %zu\n", index);
+    // }
+    // fprintf(stderr, "expecting an error now:\n");
+    // size_t index = wst_sample_without_replacement(wst);
+    // fprintf(stderr, "no error occurred, this should not happen.\n");
 }
 
 
@@ -111,6 +162,7 @@ int main(int argc, char* argv[])
     }
 
     // test_pq(g);
+    // test_weighted_sampling_tree(g);
     verify_m(g);
 
     uint32_t input_n = g->n, input_m = g->m;

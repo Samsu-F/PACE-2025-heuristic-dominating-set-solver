@@ -32,10 +32,10 @@ typedef struct Vertex {
 
 typedef struct {
     Vertex** vertices; // array of vertices in the graph
-    DynamicArray fixed; // list of vertices that are known to be optimal choices for any dominating set
+    DynamicArray fixed; // list of vertices that are known to be optimal choices for any dominating set.
+    uint32_t n;         // number of vertices remaining
+    uint32_t m;         // number of edges remaining
     // fixed vertices that were removed from the graph do not count towards n and m
-    uint32_t n;           // number of vertices remaining
-    uint32_t m;           // number of edges remaining
 } Graph;
 
 
