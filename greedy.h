@@ -9,6 +9,8 @@
 
 DynamicArray greedy(Graph* g);
 
+DynamicArray greedy_random(Graph* g);
+
 
 
 #endif

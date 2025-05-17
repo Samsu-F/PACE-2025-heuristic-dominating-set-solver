@@ -63,8 +63,6 @@ static void test_pq(Graph* g)
 
 static void test_weighted_sampling_tree(Graph* g)
 {
-    srand((unsigned)time(NULL));
-
     double* weights = malloc(g->n * sizeof(double));
     assert(weights);
     for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
@@ -75,17 +73,17 @@ static void test_weighted_sampling_tree(Graph* g)
     assert(wst);
     for(size_t i = 0; i < 200; i++) {
         size_t index = wst_sample_with_replacement(wst);
-        fprintf(stderr, "sample with replacement: index %zu\tid == %" PRIu32 "\n", index,
-                g->vertices[index]->id);
+        // fprintf(stderr, "sample with replacement: index %zu\tid == %" PRIu32 "\n", index,
+        //         g->vertices[index]->id);
     }
     for(size_t i = 0; i < g->n - 1; i++) {
         size_t index = wst_sample_without_replacement(wst);
-        fprintf(stderr, "sample without replacement: index %zu\tid == %" PRIu32 "\t\t\tg->n == %" PRIu32 ",\ti == %zu\n",
-                index, g->vertices[index]->id, g->n, i);
+        // fprintf(stderr, "sample without replacement: index %zu\tid == %" PRIu32 "\t\t\tg->n == %" PRIu32 ",\ti == %zu\n",
+        //         index, g->vertices[index]->id, g->n, i);
     }
-    fprintf(stderr, "expecting an assertion fail now:\n");
-    size_t index = wst_sample_without_replacement(wst);
-    fprintf(stderr, "no error occurred, this should not happen.\n");
+    // fprintf(stderr, "expecting an assertion fail now:\n");
+    // size_t index = wst_sample_without_replacement(wst);
+    // fprintf(stderr, "no error occurred, this should not happen.\n");
 
 
     // size_t size = 10000;
@@ -129,6 +127,7 @@ static void print_solution(Graph* g, DynamicArray* da)
 int main(int argc, char* argv[])
 {
     fprintf(stderr, "sizeof(Vertex) == %zu\n", sizeof(Vertex));
+    srand((unsigned)time(NULL));
 
     if(argc > 2) {
         fprintf(stderr, "too many arguments\n");
@@ -168,48 +167,78 @@ int main(int argc, char* argv[])
     uint32_t input_n = g->n, input_m = g->m;
     clock_t time_reduction_start = clock();
 
-    reduce(g, 15.0f, 10.0f); /////////////////////////////////////////////////////////////////////////
+    // reduce(g, 15.0f, 10.0f); /////////////////////////////////////////////////////////////////////////
 
     clock_t time_reduction_end = clock();
     uint32_t reduced_n = g->n, reduced_m = g->m;
 
+    uint32_t* dominated_by_numbers = malloc(g->n * sizeof(uint32_t));
+    if(!dominated_by_numbers)
+        exit(1);
+    for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++)
+        dominated_by_numbers[vertices_idx] = g->vertices[vertices_idx]->dominated_by_number;
+
     clock_t time_greedy_start = clock();
-    DynamicArray ds = greedy(g);
+    DynamicArray ds_greedy = greedy(g);
     clock_t time_greedy_end = clock();
+
+
+    for(size_t _ = 0; _ < 10; _++) {
+        for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++)
+            g->vertices[vertices_idx]->dominated_by_number = dominated_by_numbers[vertices_idx];
+
+        DynamicArray ds_tmp = greedy_random(g);
+        fprintf(stderr, "ds_tmp.size == %zu\n", ds_tmp.size);
+        da_free_internals(&ds_tmp);
+    }
+
+
+    for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++)
+        g->vertices[vertices_idx]->dominated_by_number = dominated_by_numbers[vertices_idx];
+
+    clock_t time_greedy_rand_start = clock();
+    DynamicArray ds_greedy_rand = greedy_random(g);
+    clock_t time_greedy_rand_end = clock();
 
 
 
     verify_m(g);
     // graph_print_as_dot(g, false, "Test");
 
-    print_solution(g, &ds);
+    print_solution(g, &ds_greedy_rand);
 
 
 
     float ms_parse_input = (float)(1000 * (time_parsing_end - time_parsing_start)) / CLOCKS_PER_SEC;
     float ms_reduce = (float)(1000 * (time_reduction_end - time_reduction_start)) / CLOCKS_PER_SEC;
     float ms_greedy = (float)(1000 * (time_greedy_end - time_greedy_start)) / CLOCKS_PER_SEC;
+    float ms_greedy_rand = (float)(1000 * (time_greedy_rand_end - time_greedy_rand_start)) / CLOCKS_PER_SEC;
 
 
     fprintf(stderr, "%s\n", argc == 2 ? argv[1] : "stdin");
     fprintf(stderr,
             "input:   n = %" PRIu32 "\tm = %" PRIu32 "\n"
             "reduced: n = %" PRIu32 "\tm = %" PRIu32 "\tfixed.size = %zu\n"
-            "greedy: ds.size = %zu\tfixed.size + ds.size = %zu",
-            input_n, input_m, reduced_n, reduced_m, g->fixed.size, ds.size, g->fixed.size + ds.size);
+            "greedy:        ds.size = %zu\tfixed.size + ds.size = %zu\n"
+            "greedy random: ds.size = %zu\tfixed.size + ds.size = %zu\n",
+            input_n, input_m, reduced_n, reduced_m, g->fixed.size, ds_greedy.size,
+            g->fixed.size + ds_greedy.size, ds_greedy_rand.size, g->fixed.size + ds_greedy_rand.size);
     fprintf(stderr,
             "---\n"
             "parse input:    %7.3f ms\n"
             "reduce:         %7.3f ms\n"
             "greedy:         %7.3f ms\n"
+            "greedy random:  %7.3f ms\n"
             "\n\n",
-            ms_parse_input, ms_reduce, ms_greedy);
+            ms_parse_input, ms_reduce, ms_greedy, ms_greedy_rand);
 
 
     // // csv mode
     // fprintf(stderr, "%" PRIu32 ",%" PRIu32 ",%.3f,%.3f\n", input_n, reduced_n, (double)reduced_n / (double)input_n, ms_reduce);
 
+    free(dominated_by_numbers);
 
     graph_free(g);
-    da_free_internals(&ds);
+    da_free_internals(&ds_greedy);
+    da_free_internals(&ds_greedy_rand);
 }
