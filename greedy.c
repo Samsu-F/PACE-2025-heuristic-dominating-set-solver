@@ -187,6 +187,7 @@ DynamicArray greedy_random(Graph* g)
         }
     }
     wst_free(wst);
+    free(weights);
     _make_minimal(&ds);
     return ds;
 }

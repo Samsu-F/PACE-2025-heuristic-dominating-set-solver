@@ -241,5 +241,5 @@ int main(int argc, char* argv[])
 
     graph_free(g);
     da_free_internals(&ds_greedy);
-    // da_free_internals(&ds_greedy_rand);
+    da_free_internals(&ds_greedy_rand);
 }

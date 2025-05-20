@@ -20,6 +20,7 @@ struct WeightedSamplingTree {
 // must not be called on the root node
 static inline size_t _tree_parent(const size_t index)
 {
+    assert(index != 0);
     return (index - 1) / 2;
 }
 
@@ -132,10 +133,12 @@ void wst_change_weight(WeightedSamplingTree* wst, size_t index, double new_weigh
     wst->weights[index] = new_weight;
     wst->tree[_weights_parent(wst, index)] += delta;
 #ifndef NDEBUG
-    double weight_lchild = wst->weights[_tree_idx_to_weights_idx(wst, _tree_lchild(_weights_parent(wst, index)))];
-    double weight_rchild = wst->weights[_tree_idx_to_weights_idx(wst, _tree_rchild(_weights_parent(wst, index)))];
-    assert(wst->tree[_weights_parent(wst, index)] <= weight_lchild + weight_rchild + 0.0001);
-    assert(wst->tree[_weights_parent(wst, index)] >= weight_lchild + weight_rchild - 0.0001);
+    if(_tree_idx_to_weights_idx(wst, _tree_rchild(_weights_parent(wst, index))) < wst->size) {
+        double weight_lchild = wst->weights[_tree_idx_to_weights_idx(wst, _tree_lchild(_weights_parent(wst, index)))];
+        double weight_rchild = wst->weights[_tree_idx_to_weights_idx(wst, _tree_rchild(_weights_parent(wst, index)))];
+        assert(wst->tree[_weights_parent(wst, index)] <= weight_lchild + weight_rchild + 0.0001);
+        assert(wst->tree[_weights_parent(wst, index)] >= weight_lchild + weight_rchild - 0.0001);
+    }
 #endif
     for(size_t node = _tree_parent(_weights_parent(wst, index)); node > 0;
         node = _tree_parent(node)) { // can't include root (0) here because of underflow
