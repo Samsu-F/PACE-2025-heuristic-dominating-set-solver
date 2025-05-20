@@ -126,7 +126,7 @@ static void print_solution(Graph* g, DynamicArray* da)
 // just some tests so far
 int main(int argc, char* argv[])
 {
-    fprintf(stderr, "sizeof(Vertex) == %zu\n", sizeof(Vertex));
+    // fprintf(stderr, "sizeof(Vertex) == %zu\n", sizeof(Vertex));
     srand((unsigned)time(NULL));
 
     if(argc > 2) {
@@ -136,7 +136,7 @@ int main(int argc, char* argv[])
 
     FILE* input_file = NULL;
     bool close_input_file = false;
-    if(argc == 2) {
+    if(argc == 2 && false) { // disabled because OPTIL doesn't seem to like this, maybe they call with some parameter?
         input_file = fopen(argv[1], "r");
         if(!input_file) {
             perror("Failed to open file");
@@ -167,7 +167,8 @@ int main(int argc, char* argv[])
     uint32_t input_n = g->n, input_m = g->m;
     clock_t time_reduction_start = clock();
 
-    // reduce(g, 15.0f, 10.0f); /////////////////////////////////////////////////////////////////////////
+    reduce(g, 15.0f, 10.0f); /////////////////////////////////////////////////////////////////////////
+
 
     clock_t time_reduction_end = clock();
     uint32_t reduced_n = g->n, reduced_m = g->m;
@@ -202,10 +203,10 @@ int main(int argc, char* argv[])
 
 
 
-    verify_m(g);
+    // verify_m(g);
     // graph_print_as_dot(g, false, "Test");
 
-    print_solution(g, &ds_greedy_rand);
+    print_solution(g, &ds_greedy);
 
 
 
@@ -234,11 +235,11 @@ int main(int argc, char* argv[])
 
 
     // // csv mode
-    // fprintf(stderr, "%" PRIu32 ",%" PRIu32 ",%.3f,%.3f\n", input_n, reduced_n, (double)reduced_n / (double)input_n, ms_reduce);
+    // fprintf(stderr, "\"%s\",%" PRIu32 ",%" PRIu32 ",%.3f,%.3f,%zu,%zu\n", argc > 1? argv[1] : "stdin", input_n, reduced_n, (double)reduced_n / (double)input_n, ms_reduce, g->fixed.size, ds_greedy.size);
 
     free(dominated_by_numbers);
 
     graph_free(g);
     da_free_internals(&ds_greedy);
-    da_free_internals(&ds_greedy_rand);
+    // da_free_internals(&ds_greedy_rand);
 }

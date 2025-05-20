@@ -11,8 +11,7 @@
 static void _make_minimal(DynamicArray* ds)
 {
     assert(ds != NULL);
-    for(size_t i_ds = 0, i_ds_next = 0; i_ds < ds->size; i_ds = i_ds_next) {
-        i_ds_next = i_ds + 1;
+    for(size_t i_ds = ds->size; i_ds-- > 0;) {
         Vertex* v = ds->vertices[i_ds];
         if(v->dominated_by_number > 1) {
             bool v_redundant = true;
@@ -30,7 +29,6 @@ static void _make_minimal(DynamicArray* ds)
                 }
                 ds->size--;
                 ds->vertices[i_ds] = ds->vertices[ds->size];
-                i_ds_next = i_ds; // stay at the index where the formerly last element was just moved to
             }
         }
     }
