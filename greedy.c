@@ -191,3 +191,107 @@ DynamicArray greedy_random(Graph* g)
     _make_minimal(&ds);
     return ds;
 }
+
+
+
+// returns a random double x, with +0.0 <= x <= 1.0, uniform distribution
+static double _random(void)
+{
+    return rand() / (double)RAND_MAX; // TODO: use a better rng. RAND_MAX is only guaranteed to be at least 32767 and rand() is also not that fast.
+}
+
+
+
+static void _remove_randomly_from_ds(Graph* g, DynamicArray* ds, double removal_probability)
+{
+    for(size_t i_ds = ds->size; i_ds-- > 0;) {
+        if((_random() < removal_probability) || i_ds <= 4) { // make sure at least 5 vertices are removed. TODO: test if it would be better to choose different indeces for this
+            Vertex* v = ds->vertices[i_ds];
+            v->dominated_by_number--;
+            for(uint32_t i_v = 0; i_v < v->degree; i_v++){
+                v->neighbors[i_v]->dominated_by_number--;
+            }
+            ds->size--;
+            ds->vertices[i_ds] = ds->vertices[ds->size];
+        }
+    }
+}
+
+
+
+// must only be called if random greedy ran on g immediately before // TODO: still true?
+// must only be called if ds is the result of the last solver that was run on g
+void greedy_random_remove_and_refill(Graph* g, DynamicArray* ds, double removal_probability)
+{
+    assert(g != NULL && ds != NULL && ds->size > 0);
+    assert(removal_probability > 0.0 && removal_probability < 1.0);
+    uint32_t undominated_vertices = 0; // the total number of undominated vertices remaining in the graph
+
+    _remove_randomly_from_ds(g, ds, removal_probability);
+
+    double* weights = malloc(g->n * sizeof(double));
+    if(!weights) {
+        perror("greedy_random: malloc failed");
+        exit(EXIT_FAILURE);
+    }
+
+    for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
+        Vertex* v = g->vertices[vertices_idx];
+        v->vertices_index = vertices_idx;
+        uint32_t undominated_neighbors = 0; // including itself if v is undominated
+        if(v->dominated_by_number == 0) {
+            undominated_vertices++;
+            undominated_neighbors++;
+        }
+        for(uint32_t i = 0; i < v->degree; i++) {
+            if(v->neighbors[i]->dominated_by_number == 0) {
+                undominated_neighbors++;
+            }
+        }
+        weights[vertices_idx] = (double)undominated_neighbors;
+    }
+
+    WeightedSamplingTree* wst = wst_new(weights, g->n);
+    if(!wst) {
+        perror("greedy_random: wst_new failed");
+        exit(EXIT_FAILURE);
+    }
+
+    while(undominated_vertices > 0) {
+        size_t index = wst_sample_without_replacement(wst);
+        Vertex* v = g->vertices[index];
+        da_add(ds, v);
+        uint32_t v_is_newly_dominated = 0;
+        v->dominated_by_number++;
+        if(v->dominated_by_number == 1) {
+            v_is_newly_dominated = 1;
+            undominated_vertices--;
+        }
+        for(uint32_t i_v = 0; i_v < v->degree; i_v++) {
+            Vertex* u1 = v->neighbors[i_v];
+            u1->dominated_by_number++;
+            uint32_t delta_undominated_neighbors_u1 = v_is_newly_dominated;
+            if(u1->dominated_by_number == 1) {    // if v is the first one to dominate u1
+                delta_undominated_neighbors_u1++; // u1 lost itself as an undominated neighbor
+                undominated_vertices--;
+                for(uint32_t i_u1 = 0; i_u1 < u1->degree; i_u1++) {
+                    Vertex* u2 = u1->neighbors[i_u1];
+                    size_t u2_index = u2->vertices_index;
+                    // because u1 is now dominated, u2 has one undominated neighbor fewer than before
+                    if(weights[u2_index] > 0.0) { ////////////////////////////////////////////////////////////////////////////
+                        wst_change_weight(wst, u2_index, weights[u2_index] - 1.0);
+                    }
+                }
+            }
+            // u1 lost 0, 1, or 2 undominated neighbors, depending on if u1 and v were undominated before
+            size_t u1_index = u1->vertices_index;
+            if(weights[u1_index] > 0.0 && delta_undominated_neighbors_u1 > 0) {
+                wst_change_weight(wst, u1_index, weights[u1_index] - (double)delta_undominated_neighbors_u1);
+            }
+        }
+    }
+    wst_free(wst);
+    free(weights);
+    _make_minimal(ds);
+    return; // return nothing, caller has pointer to ds
+}

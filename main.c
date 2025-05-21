@@ -2,11 +2,18 @@
 #include <stdio.h>
 #include <time.h>
 #include <assert.h>
+#include <string.h>
+#include <signal.h>
 
 #include "graph.h"
 #include "reduction.h"
 #include "greedy.h"
 #include "weighted_sampling_tree.h" // for debugging and testing
+
+
+
+DynamicArray* g_sigterm_handler_ds = NULL;
+DynamicArray* g_sigterm_handler_fixed = NULL;
 
 
 
@@ -109,16 +116,41 @@ static void test_weighted_sampling_tree(Graph* g)
 
 
 
-static void print_solution(Graph* g, DynamicArray* da)
+static void print_solution(DynamicArray* fixed, DynamicArray* ds)
 {
-    printf("%zu\n", g->fixed.size + (size_t)da->size);
-    for(size_t fixed_idx = 0; fixed_idx < g->fixed.size; fixed_idx++) {
-        Vertex* v = g->fixed.vertices[fixed_idx];
+    fprintf(stderr, "print_solution called\n");
+    printf("%zu\n", fixed->size + (size_t)ds->size);
+    for(size_t fixed_idx = 0; fixed_idx < fixed->size; fixed_idx++) {
+        Vertex* v = fixed->vertices[fixed_idx];
         printf("%" PRIu32 "\n", v->id);
     }
-    for(size_t i = 0; i < da->size; i++) {
-        printf("%" PRIu32 "\n", da->vertices[i]->id);
+    for(size_t i = 0; i < ds->size; i++) {
+        printf("%" PRIu32 "\n", ds->vertices[i]->id);
     }
+}
+
+
+
+// just temporary, not good
+static void clone_dynamic_array(DynamicArray* src, DynamicArray* dst)
+{
+    dst->size = src->size;
+    dst->capacity = src->capacity;
+    dst->vertices = malloc(src->capacity * sizeof(Vertex*));
+    if(dst->vertices == NULL) {
+        exit(EXIT_FAILURE);
+    }
+    memcpy(dst->vertices, src->vertices, src->size * sizeof(Vertex*));
+}
+
+
+
+// just temporary, not good
+void sigterm_handler(int sig)
+{
+    fprintf(stderr, "sigterm handler called\n");
+    print_solution(g_sigterm_handler_fixed, g_sigterm_handler_ds);
+    exit(EXIT_SUCCESS);
 }
 
 
@@ -162,84 +194,152 @@ int main(int argc, char* argv[])
 
     // test_pq(g);
     // test_weighted_sampling_tree(g);
-    verify_m(g);
+    // verify_m(g);
 
-    uint32_t input_n = g->n, input_m = g->m;
-    clock_t time_reduction_start = clock();
+    // uint32_t input_n = g->n, input_m = g->m;
+    // clock_t time_reduction_start = clock();
 
     reduce(g, 15.0f, 10.0f); /////////////////////////////////////////////////////////////////////////
 
 
-    clock_t time_reduction_end = clock();
-    uint32_t reduced_n = g->n, reduced_m = g->m;
+    // clock_t time_reduction_end = clock();
+    // uint32_t reduced_n = g->n, reduced_m = g->m;
 
     uint32_t* dominated_by_numbers = malloc(g->n * sizeof(uint32_t));
     if(!dominated_by_numbers)
         exit(1);
-    for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++)
-        dominated_by_numbers[vertices_idx] = g->vertices[vertices_idx]->dominated_by_number;
+    // for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++)
+    //     dominated_by_numbers[vertices_idx] = g->vertices[vertices_idx]->dominated_by_number;
 
-    clock_t time_greedy_start = clock();
-    DynamicArray ds_greedy = greedy(g);
-    clock_t time_greedy_end = clock();
-
-
-    for(size_t _ = 0; _ < 10; _++) {
-        for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++)
-            g->vertices[vertices_idx]->dominated_by_number = dominated_by_numbers[vertices_idx];
-
-        DynamicArray ds_tmp = greedy_random(g);
-        fprintf(stderr, "ds_tmp.size == %zu\n", ds_tmp.size);
-        da_free_internals(&ds_tmp);
-    }
+    // clock_t time_greedy_start = clock();
+    // DynamicArray ds_greedy = greedy(g);
+    // clock_t time_greedy_end = clock();
 
 
-    for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++)
-        g->vertices[vertices_idx]->dominated_by_number = dominated_by_numbers[vertices_idx];
 
-    clock_t time_greedy_rand_start = clock();
-    DynamicArray ds_greedy_rand = greedy_random(g);
-    clock_t time_greedy_rand_end = clock();
+    // for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++)
+    //     g->vertices[vertices_idx]->dominated_by_number = dominated_by_numbers[vertices_idx];
+
+    // clock_t time_greedy_rand_start = clock();
+    // DynamicArray ds_greedy_rand = greedy_random(g);
+    // clock_t time_greedy_rand_end = clock();
+
+
+    // for(size_t testrun = 0; testrun < 10; testrun++) {
+    //     for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++)
+    //         g->vertices[vertices_idx]->dominated_by_number = dominated_by_numbers[vertices_idx];
+
+    //     DynamicArray ds_tmp = greedy_random(g);
+    //     fprintf(stderr, "\nds_tmp.size == %zu\n", ds_tmp.size);
+    //     double removal_probability = (double)testrun / 20.0 + 0.02;
+    //     for(size_t greedy_repeat = 0; greedy_repeat < 10; greedy_repeat++) {
+    //         greedy_random_remove_and_refill(g, &ds_tmp, removal_probability);
+    //         fprintf(stderr, "ds_tmp.size == %zu\t\tremoval_probability == %.3f\tgreedy_repeat == %zu\n",
+    //                 ds_tmp.size, removal_probability, greedy_repeat);
+    //     }
+    //     da_free_internals(&ds_tmp);
+    // }
 
 
 
     // verify_m(g);
     // graph_print_as_dot(g, false, "Test");
 
-    print_solution(g, &ds_greedy);
+    // print_solution(g, &ds_greedy);
 
 
 
-    float ms_parse_input = (float)(1000 * (time_parsing_end - time_parsing_start)) / CLOCKS_PER_SEC;
-    float ms_reduce = (float)(1000 * (time_reduction_end - time_reduction_start)) / CLOCKS_PER_SEC;
-    float ms_greedy = (float)(1000 * (time_greedy_end - time_greedy_start)) / CLOCKS_PER_SEC;
-    float ms_greedy_rand = (float)(1000 * (time_greedy_rand_end - time_greedy_rand_start)) / CLOCKS_PER_SEC;
+    // float ms_parse_input = (float)(1000 * (time_parsing_end - time_parsing_start)) / CLOCKS_PER_SEC;
+    // float ms_reduce = (float)(1000 * (time_reduction_end - time_reduction_start)) / CLOCKS_PER_SEC;
+    // float ms_greedy = (float)(1000 * (time_greedy_end - time_greedy_start)) / CLOCKS_PER_SEC;
+    // float ms_greedy_rand = (float)(1000 * (time_greedy_rand_end - time_greedy_rand_start)) / CLOCKS_PER_SEC;
 
 
-    fprintf(stderr, "%s\n", argc == 2 ? argv[1] : "stdin");
-    fprintf(stderr,
-            "input:   n = %" PRIu32 "\tm = %" PRIu32 "\n"
-            "reduced: n = %" PRIu32 "\tm = %" PRIu32 "\tfixed.size = %zu\n"
-            "greedy:        ds.size = %zu\tfixed.size + ds.size = %zu\n"
-            "greedy random: ds.size = %zu\tfixed.size + ds.size = %zu\n",
-            input_n, input_m, reduced_n, reduced_m, g->fixed.size, ds_greedy.size,
-            g->fixed.size + ds_greedy.size, ds_greedy_rand.size, g->fixed.size + ds_greedy_rand.size);
-    fprintf(stderr,
-            "---\n"
-            "parse input:    %7.3f ms\n"
-            "reduce:         %7.3f ms\n"
-            "greedy:         %7.3f ms\n"
-            "greedy random:  %7.3f ms\n"
-            "\n\n",
-            ms_parse_input, ms_reduce, ms_greedy, ms_greedy_rand);
+    // fprintf(stderr, "%s\n", argc == 2 ? argv[1] : "stdin");
+    // fprintf(stderr,
+    //         "input:   n = %" PRIu32 "\tm = %" PRIu32 "\n"
+    //         "reduced: n = %" PRIu32 "\tm = %" PRIu32 "\tfixed.size = %zu\n"
+    //         "greedy:        ds.size = %zu\tfixed.size + ds.size = %zu\n"
+    //         "greedy random: ds.size = %zu\tfixed.size + ds.size = %zu\n",
+    //         input_n, input_m, reduced_n, reduced_m, g->fixed.size, ds_greedy.size,
+    //         g->fixed.size + ds_greedy.size, ds_greedy_rand.size, g->fixed.size + ds_greedy_rand.size);
+    // fprintf(stderr,
+    //         "---\n"
+    //         "parse input:    %7.3f ms\n"
+    //         "reduce:         %7.3f ms\n"
+    //         "greedy:         %7.3f ms\n"
+    //         "greedy random:  %7.3f ms\n"
+    //         "\n\n",
+    //         ms_parse_input, ms_reduce, ms_greedy, ms_greedy_rand);
 
 
     // // csv mode
     // fprintf(stderr, "\"%s\",%" PRIu32 ",%" PRIu32 ",%.3f,%.3f,%zu,%zu\n", argc > 1? argv[1] : "stdin", input_n, reduced_n, (double)reduced_n / (double)input_n, ms_reduce, g->fixed.size, ds_greedy.size);
 
+
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+    if(signal(SIGTERM, sigterm_handler) == SIG_ERR) {
+        perror("registering sigterm handler failed");
+        return EXIT_FAILURE;
+    }
+    g_sigterm_handler_fixed = &(g->fixed);
+
+
+
+    {
+        // for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) { // restore state after reduction for testing
+        //     g->vertices[vertices_idx]->dominated_by_number = dominated_by_numbers[vertices_idx];
+        //     g->vertices[vertices_idx]->is_in_pq = false;
+        // }
+
+        // DynamicArray ds = greedy_random(g);
+        DynamicArray current_best_ds = greedy(g);
+        g_sigterm_handler_ds = &current_best_ds;
+        for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++)
+            dominated_by_numbers[vertices_idx] = g->vertices[vertices_idx]->dominated_by_number;
+        assert(fprintf(stderr, "\nafter initial greedy: current_best_ds.size == %zu\n", current_best_ds.size));
+        double removal_probability = 0.05;
+        DynamicArray ds;
+        clone_dynamic_array(&current_best_ds, &ds);
+        for(size_t greedy_repeat = 0; true; greedy_repeat++) {
+            greedy_random_remove_and_refill(g, &ds, removal_probability);
+            if(ds.size <= current_best_ds.size) {
+                assert(fprintf(stderr, "%s ds.size == %zu\tprev best: %zu\t\tremoval_probability == %.3f\tgreedy_repeat == %zu\n",
+                               ds.size < current_best_ds.size ? "IMPROVEMENT:" : "EQUAL:      ", ds.size,
+                               current_best_ds.size, removal_probability, greedy_repeat));
+                for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++)
+                    dominated_by_numbers[vertices_idx] = g->vertices[vertices_idx]->dominated_by_number;
+                g_sigterm_handler_ds = &ds;
+                da_free_internals(&current_best_ds);
+                clone_dynamic_array(&ds, &current_best_ds);
+                g_sigterm_handler_ds = &current_best_ds;
+            }
+            else { // restore previous state
+                assert(fprintf(stderr, "worse:       ds.size == %zu\tprev best: %zu\t\tremoval_probability == %.3f\tgreedy_repeat == %zu\n",
+                               ds.size, current_best_ds.size, removal_probability, greedy_repeat));
+                for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++)
+                    g->vertices[vertices_idx]->dominated_by_number = dominated_by_numbers[vertices_idx];
+                da_free_internals(&ds);
+                clone_dynamic_array(&current_best_ds, &ds);
+            }
+        }
+        da_free_internals(&ds);
+        da_free_internals(&current_best_ds);
+    }
+
+
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
     free(dominated_by_numbers);
 
     graph_free(g);
-    da_free_internals(&ds_greedy);
-    da_free_internals(&ds_greedy_rand);
+    // da_free_internals(&ds_greedy);
+    // da_free_internals(&ds_greedy_rand);
 }

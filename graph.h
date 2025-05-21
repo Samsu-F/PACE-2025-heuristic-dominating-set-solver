@@ -17,11 +17,12 @@ typedef struct Vertex {
     uint32_t degree;           // this is the length of the array neighbors
     uint32_t dominated_by_number; // the number of neighbors in the ds this vertex is dominated by. For use by the greedy solver.
     union {
-        uint32_t neighbor_tag; /*   For the reduction algorithm to be used as a temporary marker.
+        uint32_t neighbor_tag;   /*   For the reduction algorithm to be used as a temporary marker.
                                     This value must never be the id of an existing but non-neighboring vertex.
                                     0 is a valid value, because vertex ids must not be 0. */
-        uint32_t pq_kv_idx;    /*   May only be accessed by the internals of the priority queue.
+        uint32_t pq_kv_idx;      /*   May only be accessed by the internals of the priority queue.
                                     The index this vertex has inside the priority queue. */
+        uint32_t vertices_index; // its own index in g->vertices. For use during greedy_random.
     };
     union {
         bool is_removed; // for use during the reduction phase
