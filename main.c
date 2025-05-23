@@ -12,8 +12,9 @@
 
 
 
-DynamicArray* g_sigterm_handler_ds = NULL;
-DynamicArray* g_sigterm_handler_fixed = NULL;
+// DynamicArray* g_sigterm_handler_ds = NULL;
+// DynamicArray* g_sigterm_handler_fixed = NULL;
+static bool g_sigterm_received = false;
 
 
 
@@ -118,7 +119,7 @@ static void test_weighted_sampling_tree(Graph* g)
 
 static void print_solution(DynamicArray* fixed, DynamicArray* ds)
 {
-    fprintf(stderr, "print_solution called\n");
+    // fprintf(stderr, "print_solution called\n");
     printf("%zu\n", fixed->size + (size_t)ds->size);
     for(size_t fixed_idx = 0; fixed_idx < fixed->size; fixed_idx++) {
         Vertex* v = fixed->vertices[fixed_idx];
@@ -127,6 +128,7 @@ static void print_solution(DynamicArray* fixed, DynamicArray* ds)
     for(size_t i = 0; i < ds->size; i++) {
         printf("%" PRIu32 "\n", ds->vertices[i]->id);
     }
+    fflush(stdout);
 }
 
 
@@ -148,9 +150,10 @@ static void clone_dynamic_array(DynamicArray* src, DynamicArray* dst)
 // just temporary, not good
 void sigterm_handler(int sig)
 {
-    fprintf(stderr, "sigterm handler called\n");
-    print_solution(g_sigterm_handler_fixed, g_sigterm_handler_ds);
-    exit(EXIT_SUCCESS);
+    // fprintf(stderr, "sigterm handler called\n");
+    g_sigterm_received = true;
+    // print_solution(g_sigterm_handler_fixed, g_sigterm_handler_ds);
+    // exit(EXIT_SUCCESS);
 }
 
 
@@ -208,8 +211,8 @@ int main(int argc, char* argv[])
     uint32_t* dominated_by_numbers = malloc(g->n * sizeof(uint32_t));
     if(!dominated_by_numbers)
         exit(1);
-    // for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++)
-    //     dominated_by_numbers[vertices_idx] = g->vertices[vertices_idx]->dominated_by_number;
+    for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++)
+        dominated_by_numbers[vertices_idx] = g->vertices[vertices_idx]->dominated_by_number;
 
     // clock_t time_greedy_start = clock();
     // DynamicArray ds_greedy = greedy(g);
@@ -245,7 +248,7 @@ int main(int argc, char* argv[])
     // verify_m(g);
     // graph_print_as_dot(g, false, "Test");
 
-    // print_solution(g, &ds_greedy);
+    // print_solution((&g->fixed), &ds_greedy);
 
 
 
@@ -282,12 +285,23 @@ int main(int argc, char* argv[])
 
 
 
-    if(signal(SIGTERM, sigterm_handler) == SIG_ERR) {
-        perror("registering sigterm handler failed");
-        return EXIT_FAILURE;
-    }
-    g_sigterm_handler_fixed = &(g->fixed);
+    // if(signal(SIGTERM, sigterm_handler) == SIG_ERR) {
+    //     perror("registering sigterm handler failed");
+    //     return EXIT_FAILURE;
+    // }
+    // // g_sigterm_handler_fixed = &(g->fixed);
 
+
+    {
+        struct sigaction sa;
+        sa.sa_handler = sigterm_handler;
+        sigemptyset(&sa.sa_mask);
+        sa.sa_flags = SA_RESTART; // 0 or SA_RESTART if syscalls should be restarted
+        if(sigaction(SIGTERM, &sa, NULL) == -1) {
+            perror("sigaction failed");
+            exit(EXIT_FAILURE);
+        }
+    }
 
 
     {
@@ -298,10 +312,11 @@ int main(int argc, char* argv[])
 
         // DynamicArray ds = greedy_random(g);
         DynamicArray current_best_ds = greedy(g);
-        g_sigterm_handler_ds = &current_best_ds;
+        // g_sigterm_handler_ds = &current_best_ds;
         for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++)
             dominated_by_numbers[vertices_idx] = g->vertices[vertices_idx]->dominated_by_number;
-        assert(fprintf(stderr, "\nafter initial greedy: current_best_ds.size == %zu\n", current_best_ds.size));
+        assert(fprintf(stderr, "\nafter initial greedy: current_best_ds.size == %zu\n",
+                       current_best_ds.size));
         double removal_probability = 0.05;
         DynamicArray ds;
         clone_dynamic_array(&current_best_ds, &ds);
@@ -313,10 +328,10 @@ int main(int argc, char* argv[])
                                current_best_ds.size, removal_probability, greedy_repeat));
                 for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++)
                     dominated_by_numbers[vertices_idx] = g->vertices[vertices_idx]->dominated_by_number;
-                g_sigterm_handler_ds = &ds;
+                // g_sigterm_handler_ds = &ds;
                 da_free_internals(&current_best_ds);
                 clone_dynamic_array(&ds, &current_best_ds);
-                g_sigterm_handler_ds = &current_best_ds;
+                // g_sigterm_handler_ds = &current_best_ds;
             }
             else { // restore previous state
                 assert(fprintf(stderr, "worse:       ds.size == %zu\tprev best: %zu\t\tremoval_probability == %.3f\tgreedy_repeat == %zu\n",
@@ -325,6 +340,12 @@ int main(int argc, char* argv[])
                     g->vertices[vertices_idx]->dominated_by_number = dominated_by_numbers[vertices_idx];
                 da_free_internals(&ds);
                 clone_dynamic_array(&current_best_ds, &ds);
+            }
+            if(g_sigterm_received) {
+                fprintf(stderr, "g_sigterm_received == true\n");
+                fflush(stderr);
+                print_solution(&(g->fixed), &current_best_ds);
+                break;
             }
         }
         da_free_internals(&ds);
