@@ -13,6 +13,7 @@ DynamicArray greedy_random(Graph* g);
 
 
 void greedy_random_remove_and_refill(Graph* g, DynamicArray* ds, double removal_probability);
+void greedy_remove_and_refill(Graph* g, DynamicArray* ds, double removal_probability);
 
 
 

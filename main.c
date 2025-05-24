@@ -321,7 +321,8 @@ int main(int argc, char* argv[])
         DynamicArray ds;
         clone_dynamic_array(&current_best_ds, &ds);
         for(size_t greedy_repeat = 0; true; greedy_repeat++) {
-            greedy_random_remove_and_refill(g, &ds, removal_probability);
+            // greedy_random_remove_and_refill(g, &ds, removal_probability);
+            greedy_remove_and_refill(g, &ds, removal_probability);
             if(ds.size <= current_best_ds.size) {
                 assert(fprintf(stderr, "%s ds.size == %zu\tprev best: %zu\t\tremoval_probability == %.3f\tgreedy_repeat == %zu\n",
                                ds.size < current_best_ds.size ? "IMPROVEMENT:" : "EQUAL:      ", ds.size,
@@ -342,7 +343,7 @@ int main(int argc, char* argv[])
                 clone_dynamic_array(&current_best_ds, &ds);
             }
             if(g_sigterm_received) {
-                fprintf(stderr, "g_sigterm_received == true\n");
+                fprintf(stderr, "g_sigterm_received == true\tgreedy_repeat == %zu, final ds size == %zu\n", greedy_repeat, current_best_ds.size);
                 fflush(stderr);
                 print_solution(&(g->fixed), &current_best_ds);
                 break;
