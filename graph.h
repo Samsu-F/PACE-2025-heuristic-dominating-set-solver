@@ -29,6 +29,7 @@ typedef struct Vertex {
         bool is_in_pq; // May be read by anyone but must not be changed by anything but the priority queue internals
     };
     bool is_in_ds;
+    bool queued;
 } Vertex;
 
 

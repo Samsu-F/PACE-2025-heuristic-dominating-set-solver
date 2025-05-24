@@ -121,23 +121,90 @@ static double _random(void)
 
 
 
+// // returns the resulting ds size
+// static size_t _remove_randomly_from_ds(Graph* g, double removal_probability, size_t current_ds_size)
+// {
+//     for(size_t i_vertices = 0; i_vertices < g->n; i_vertices++) {
+//         Vertex* v = g->vertices[i_vertices];
+//         if(v->is_in_ds) {
+//             if((_random() < removal_probability)) {
+//                 v->dominated_by_number--;
+//                 for(uint32_t i_v = 0; i_v < v->degree; i_v++) {
+//                     v->neighbors[i_v]->dominated_by_number--;
+//                 }
+//                 v->is_in_ds = false;
+//                 current_ds_size--;
+//             }
+//         }
+//     }
+//     return current_ds_size;
+// }
+
+
+
+typedef struct Queue {
+    struct Queue* next;
+    Vertex* val;
+} Queue;
+
+
+
 // returns the resulting ds size
-static size_t _remove_randomly_from_ds(Graph* g, double removal_probability, size_t current_ds_size)
+static size_t _local_deconstruction(Graph* g, const size_t current_ds_size)
 {
-    for(size_t i_vertices = 0; i_vertices < g->n; i_vertices++) {
-        Vertex* v = g->vertices[i_vertices];
+    for(size_t i_vertices = 0; i_vertices < g->n; i_vertices++) { // inefficient, TODO
+        g->vertices[i_vertices]->queued = false;
+    }
+
+    size_t start_index = (size_t)(_random() * g->n);
+    start_index = start_index >= g->n ? g->n - 1 : start_index;
+
+    Queue* q_head = calloc(1, sizeof(Queue));
+    if(!q_head) {
+        exit(42);
+    }
+    q_head->val = g->vertices[start_index];
+    Queue* q_tail = q_head;
+
+    size_t count_removed = 0;
+    while(q_head != NULL && count_removed < 25) {
+        Vertex* v = q_head->val;
+
         if(v->is_in_ds) {
-            if((_random() < removal_probability)) {
-                v->dominated_by_number--;
-                for(uint32_t i_v = 0; i_v < v->degree; i_v++) {
-                    v->neighbors[i_v]->dominated_by_number--;
-                }
-                v->is_in_ds = false;
-                current_ds_size--;
+            v->dominated_by_number--;
+            for(uint32_t i_v = 0; i_v < v->degree; i_v++) {
+                v->neighbors[i_v]->dominated_by_number--;
+            }
+            v->is_in_ds = false;
+            count_removed++;
+        }
+
+        for(uint32_t i_v = 0; i_v < v->degree; i_v++) {
+            Vertex* u = v->neighbors[i_v];
+            if(!u->queued) {
+                u->queued = true;
+                Queue* new_q_elem = calloc(1, sizeof(Queue));
+                if(!new_q_elem)
+                    exit(42);
+                new_q_elem->val = u;
+                q_tail->next = new_q_elem;
+                q_tail = new_q_elem;
             }
         }
+
+        Queue* to_free = q_head;
+        q_head = q_head->next;
+        free(to_free);
     }
-    return current_ds_size;
+
+    while(q_head != NULL) {
+        Queue* to_free = q_head;
+        q_head = q_head->next;
+        free(to_free);
+    }
+
+
+    return current_ds_size - count_removed;
 }
 
 
@@ -150,7 +217,8 @@ size_t greedy_remove_and_refill(Graph* g, double removal_probability, size_t cur
     assert(removal_probability > 0.0 && removal_probability < 1.0);
     uint32_t undominated_vertices = 0; // the total number of undominated vertices remaining in the graph
 
-    current_ds_size = _remove_randomly_from_ds(g, removal_probability, current_ds_size);
+    // current_ds_size = _remove_randomly_from_ds(g, removal_probability, current_ds_size);
+    current_ds_size = _local_deconstruction(g, current_ds_size);
 
     PQueue* pq = pq_new(uint32_t_greater);
     if(!pq) {
