@@ -246,7 +246,9 @@ void greedy_remove_and_refill(Graph* g, DynamicArray* ds, double removal_probabi
             }
         }
         v->is_in_pq = false;
-        pq_insert(pq, (KeyValPair) {.key = undominated_neighbors, .val = v});
+        if(undominated_neighbors > 0) {
+            pq_insert(pq, (KeyValPair) {.key = undominated_neighbors, .val = v});
+        }
     }
 
 
