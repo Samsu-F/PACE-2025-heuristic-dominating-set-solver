@@ -28,6 +28,7 @@ typedef struct Vertex {
         bool is_removed; // for use during the reduction phase
         bool is_in_pq; // May be read by anyone but must not be changed by anything but the priority queue internals
     };
+    bool is_in_ds;
 } Vertex;
 
 

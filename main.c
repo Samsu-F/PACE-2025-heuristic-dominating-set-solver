@@ -117,18 +117,24 @@ static void test_weighted_sampling_tree(Graph* g)
 
 
 
-static void print_solution(DynamicArray* fixed, DynamicArray* ds)
+static void print_solution(Graph* g, size_t ds_size)
 {
     // fprintf(stderr, "print_solution called\n");
-    printf("%zu\n", fixed->size + (size_t)ds->size);
-    for(size_t fixed_idx = 0; fixed_idx < fixed->size; fixed_idx++) {
-        Vertex* v = fixed->vertices[fixed_idx];
+    printf("%zu\n", g->fixed.size + ds_size);
+    for(size_t fixed_idx = 0; fixed_idx < g->fixed.size; fixed_idx++) {
+        Vertex* v = g->fixed.vertices[fixed_idx];
         printf("%" PRIu32 "\n", v->id);
     }
-    for(size_t i = 0; i < ds->size; i++) {
-        printf("%" PRIu32 "\n", ds->vertices[i]->id);
+    size_t ds_vertices_found_in_g = 0;
+    for(size_t i_vertices = 0; i_vertices < g->n; i_vertices++) {
+        Vertex* v = g->vertices[i_vertices];
+        if(v->is_in_ds) {
+            printf("%" PRIu32 "\n", v->id);
+            ds_vertices_found_in_g++;
+        }
     }
     fflush(stdout);
+    assert(ds_vertices_found_in_g == ds_size);
 }
 
 
@@ -209,10 +215,13 @@ int main(int argc, char* argv[])
     // uint32_t reduced_n = g->n, reduced_m = g->m;
 
     uint32_t* dominated_by_numbers = malloc(g->n * sizeof(uint32_t));
-    if(!dominated_by_numbers)
+    bool* in_ds = calloc(g->n, sizeof(bool));
+    if(!dominated_by_numbers || !in_ds)
         exit(1);
-    for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++)
+    for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
         dominated_by_numbers[vertices_idx] = g->vertices[vertices_idx]->dominated_by_number;
+        assert(!(g->vertices[vertices_idx]->is_in_ds));
+    }
 
     // clock_t time_greedy_start = clock();
     // DynamicArray ds_greedy = greedy(g);
@@ -311,46 +320,43 @@ int main(int argc, char* argv[])
         // }
 
         // DynamicArray ds = greedy_random(g);
-        DynamicArray current_best_ds = greedy(g);
+        size_t current_best_ds_size = greedy(g);
         // g_sigterm_handler_ds = &current_best_ds;
-        for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++)
+        for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
             dominated_by_numbers[vertices_idx] = g->vertices[vertices_idx]->dominated_by_number;
-        assert(fprintf(stderr, "\nafter initial greedy: current_best_ds.size == %zu\n",
-                       current_best_ds.size));
+            in_ds[vertices_idx] = g->vertices[vertices_idx]->is_in_ds;
+        }
+        assert(fprintf(stderr, "\nafter initial greedy: current_best_ds_size == %zu\n", current_best_ds_size));
         double removal_probability = 0.05;
-        DynamicArray ds;
-        clone_dynamic_array(&current_best_ds, &ds);
         for(size_t greedy_repeat = 0; true; greedy_repeat++) {
             // greedy_random_remove_and_refill(g, &ds, removal_probability);
-            greedy_remove_and_refill(g, &ds, removal_probability);
-            if(ds.size <= current_best_ds.size) {
-                assert(fprintf(stderr, "%s ds.size == %zu\tprev best: %zu\t\tremoval_probability == %.3f\tgreedy_repeat == %zu\n",
-                               ds.size < current_best_ds.size ? "IMPROVEMENT:" : "EQUAL:      ", ds.size,
-                               current_best_ds.size, removal_probability, greedy_repeat));
-                for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++)
+            size_t new_ds_size = greedy_remove_and_refill(g, removal_probability, current_best_ds_size);
+            if(new_ds_size <= current_best_ds_size) {
+                assert(fprintf(stderr, "%s new_ds_size == %zu\tprev best: %zu\t\tremoval_probability == %.3f\tgreedy_repeat == %zu\n",
+                               new_ds_size < current_best_ds_size ? "IMPROVEMENT:" : "EQUAL:      ", new_ds_size,
+                               current_best_ds_size, removal_probability, greedy_repeat));
+                for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
                     dominated_by_numbers[vertices_idx] = g->vertices[vertices_idx]->dominated_by_number;
-                // g_sigterm_handler_ds = &ds;
-                da_free_internals(&current_best_ds);
-                clone_dynamic_array(&ds, &current_best_ds);
-                // g_sigterm_handler_ds = &current_best_ds;
+                    in_ds[vertices_idx] = g->vertices[vertices_idx]->is_in_ds;
+                }
+                current_best_ds_size = new_ds_size;
             }
             else { // restore previous state
-                assert(fprintf(stderr, "worse:       ds.size == %zu\tprev best: %zu\t\tremoval_probability == %.3f\tgreedy_repeat == %zu\n",
-                               ds.size, current_best_ds.size, removal_probability, greedy_repeat));
-                for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++)
+                assert(fprintf(stderr, "worse:       new_ds_size == %zu\tprev best: %zu\t\tremoval_probability == %.3f\tgreedy_repeat == %zu\n",
+                               new_ds_size, current_best_ds_size, removal_probability, greedy_repeat));
+                for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
                     g->vertices[vertices_idx]->dominated_by_number = dominated_by_numbers[vertices_idx];
-                da_free_internals(&ds);
-                clone_dynamic_array(&current_best_ds, &ds);
+                    g->vertices[vertices_idx]->is_in_ds = in_ds[vertices_idx];
+                }
             }
             if(g_sigterm_received) {
-                fprintf(stderr, "g_sigterm_received == true\tgreedy_repeat == %zu, final ds size == %zu\n", greedy_repeat, current_best_ds.size);
+                fprintf(stderr, "g_sigterm_received == true\tgreedy_repeat == %zu, final ds size == %zu\n",
+                        greedy_repeat, current_best_ds_size);
                 fflush(stderr);
-                print_solution(&(g->fixed), &current_best_ds);
+                print_solution(g, current_best_ds_size);
                 break;
             }
         }
-        da_free_internals(&ds);
-        da_free_internals(&current_best_ds);
     }
 
 
@@ -360,6 +366,7 @@ int main(int argc, char* argv[])
 
 
     free(dominated_by_numbers);
+    free(in_ds);
 
     graph_free(g);
     // da_free_internals(&ds_greedy);
