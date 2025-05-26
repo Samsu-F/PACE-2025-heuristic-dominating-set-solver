@@ -7,6 +7,9 @@
 #include "weighted_sampling_tree.h"
 
 
+size_t g_reconstruct_counter = 0;
+
+
 // return the new ds size
 size_t _make_minimal(Graph* g, size_t current_ds_size)
 {
@@ -121,24 +124,24 @@ static double _random(void)
 
 
 
-// // returns the resulting ds size
-// static size_t _remove_randomly_from_ds(Graph* g, double removal_probability, size_t current_ds_size)
-// {
-//     for(size_t i_vertices = 0; i_vertices < g->n; i_vertices++) {
-//         Vertex* v = g->vertices[i_vertices];
-//         if(v->is_in_ds) {
-//             if((_random() < removal_probability)) {
-//                 v->dominated_by_number--;
-//                 for(uint32_t i_v = 0; i_v < v->degree; i_v++) {
-//                     v->neighbors[i_v]->dominated_by_number--;
-//                 }
-//                 v->is_in_ds = false;
-//                 current_ds_size--;
-//             }
-//         }
-//     }
-//     return current_ds_size;
-// }
+// returns the resulting ds size
+static size_t _remove_randomly_from_ds(Graph* g, double removal_probability, size_t current_ds_size)
+{
+    for(size_t i_vertices = 0; i_vertices < g->n; i_vertices++) {
+        Vertex* v = g->vertices[i_vertices];
+        if(v->is_in_ds) {
+            if((_random() < removal_probability)) {
+                v->dominated_by_number--;
+                for(uint32_t i_v = 0; i_v < v->degree; i_v++) {
+                    v->neighbors[i_v]->dominated_by_number--;
+                }
+                v->is_in_ds = false;
+                current_ds_size--;
+            }
+        }
+    }
+    return current_ds_size;
+}
 
 
 
@@ -217,8 +220,14 @@ size_t greedy_remove_and_refill(Graph* g, double removal_probability, size_t cur
     assert(removal_probability > 0.0 && removal_probability < 1.0);
     uint32_t undominated_vertices = 0; // the total number of undominated vertices remaining in the graph
 
-    // current_ds_size = _remove_randomly_from_ds(g, removal_probability, current_ds_size);
-    current_ds_size = _local_deconstruction(g, current_ds_size);
+    if(++g_reconstruct_counter % 3 == 0) {
+        assert(fprintf(stderr, "local deconstruction \t"));
+        current_ds_size = _local_deconstruction(g, current_ds_size);
+    }
+    else {
+        assert(fprintf(stderr, "random deconstruction\t"));
+        current_ds_size = _remove_randomly_from_ds(g, removal_probability, current_ds_size);
+    }
 
     PQueue* pq = pq_new(uint32_t_greater);
     if(!pq) {
