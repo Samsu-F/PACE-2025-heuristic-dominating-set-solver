@@ -4,10 +4,10 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#include "weighted_sampling_tree.h"
 
 
 size_t g_reconstruct_counter = 0;
+
 
 
 // return the new ds size
