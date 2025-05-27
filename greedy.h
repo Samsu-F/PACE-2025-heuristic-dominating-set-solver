@@ -11,6 +11,10 @@ size_t greedy(Graph* g);
 
 size_t greedy_remove_and_refill(Graph* g, double removal_probability, size_t current_ds_size);
 
+size_t greedy_vote_remove_and_refill(Graph* g, double removal_probability, size_t current_ds_size);
+
+void init_votes(Graph* g);
+
 
 
 #endif

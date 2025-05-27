@@ -265,6 +265,8 @@ int main(int argc, char* argv[])
 
 
     {
+        init_votes(g);
+
         // for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) { // restore state after reduction for testing
         //     g->vertices[vertices_idx]->dominated_by_number = dominated_by_numbers[vertices_idx];
         //     g->vertices[vertices_idx]->is_in_pq = false;
@@ -280,8 +282,13 @@ int main(int argc, char* argv[])
         assert(fprintf(stderr, "\nafter initial greedy: current_best_ds_size == %zu\n", current_best_ds_size));
         double removal_probability = 0.05;
         for(size_t greedy_repeat = 0; true; greedy_repeat++) {
-            // greedy_random_remove_and_refill(g, &ds, removal_probability);
-            size_t new_ds_size = greedy_remove_and_refill(g, removal_probability, current_best_ds_size);
+            size_t new_ds_size;
+            if(greedy_repeat % 2 == 0) {
+                new_ds_size = greedy_remove_and_refill(g, removal_probability, current_best_ds_size);
+            }
+            else {
+                new_ds_size = greedy_vote_remove_and_refill(g, removal_probability, current_best_ds_size);
+            }
             if(new_ds_size <= current_best_ds_size) {
                 assert(fprintf(stderr, "%s new_ds_size == %zu\tprev best: %zu\t\tremoval_probability == %.3f\tgreedy_repeat == %zu\n",
                                new_ds_size < current_best_ds_size ? "IMPROVEMENT:" : "EQUAL: =    ", new_ds_size,

@@ -79,7 +79,6 @@ size_t greedy(Graph* g)
         assert(!pq_is_empty(pq));
         KeyValPair kv = pq_pop(pq);
         Vertex* v = kv.val;
-        // uint32_t undominated_neighbors = kv.key; // not needed so far
         assert(!v->is_in_ds);
         v->is_in_ds = true;
         current_ds_size++;
@@ -259,7 +258,6 @@ size_t greedy_remove_and_refill(Graph* g, double removal_probability, size_t cur
         assert(!pq_is_empty(pq));
         KeyValPair kv = pq_pop(pq);
         Vertex* v = kv.val;
-        // uint32_t undominated_neighbors = kv.key; // not needed so far
         assert(!v->is_in_ds);
         v->is_in_ds = true;
         current_ds_size++;
@@ -288,6 +286,101 @@ size_t greedy_remove_and_refill(Graph* g, double removal_probability, size_t cur
             // u1 lost 0, 1, or 2 undominated neighbors, depending on if u1 and v were undominated before
             if(u1->is_in_pq && delta_undominated_neighbors_u1 > 0) {
                 pq_decrease_priority(pq, u1, pq_get_key(pq, u1) - delta_undominated_neighbors_u1);
+            }
+        }
+    }
+    pq_free(pq);
+    current_ds_size = _make_minimal(g, current_ds_size);
+    return current_ds_size;
+}
+
+
+
+void init_votes(Graph* g)
+{
+    assert(g != NULL);
+    for(size_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
+        Vertex* v = g->vertices[vertices_idx];
+        v->vote = 1.0 / (double)(v->degree + 1);
+    }
+}
+
+
+
+size_t greedy_vote_remove_and_refill(Graph* g, double removal_probability, size_t current_ds_size)
+{
+    assert(g != NULL);
+    assert(removal_probability > 0.0 && removal_probability < 1.0);
+
+    init_votes(g); // TODO: this is only necessary once, not every IG iteration step
+
+    uint32_t undominated_vertices = 0; // the total number of undominated vertices remaining in the graph
+
+    if(++g_reconstruct_counter % 3 == 0) {
+        assert(fprintf(stderr, "local deconstruction \t"));
+        current_ds_size = _local_deconstruction(g, current_ds_size);
+    }
+    else {
+        assert(fprintf(stderr, "random deconstruction\t"));
+        current_ds_size = _remove_randomly_from_ds(g, removal_probability, current_ds_size);
+    }
+
+    PQueue* pq = pq_new(double_greater);
+    if(!pq) {
+        perror("greedy: pq_new failed");
+        exit(EXIT_FAILURE);
+    }
+    for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
+        Vertex* v = g->vertices[vertices_idx];
+        double weight = 0.0; // aka votes received
+        if(v->dominated_by_number == 0) {
+            undominated_vertices++;
+            weight = v->vote;
+        }
+        for(uint32_t i = 0; i < v->degree; i++) {
+            Vertex* u = v->neighbors[i];
+            if(u->dominated_by_number == 0) {
+                weight += u->vote;
+            }
+        }
+        v->is_in_pq = false;
+        if(weight > 0.0) {
+            pq_insert(pq, (KeyValPair) {.key = weight, .val = v});
+        }
+    }
+
+
+    while(undominated_vertices > 0) {
+        assert(!pq_is_empty(pq));
+        KeyValPair kv = pq_pop(pq);
+        Vertex* v = kv.val;
+        assert(!v->is_in_ds);
+        v->is_in_ds = true;
+        current_ds_size++;
+        double v_is_newly_dominated = 0.0;
+        v->dominated_by_number++;
+        if(v->dominated_by_number == 1) {
+            v_is_newly_dominated = 1.0;
+            undominated_vertices--;
+        }
+
+        for(uint32_t i_v = 0; i_v < v->degree; i_v++) {
+            Vertex* u1 = v->neighbors[i_v];
+            u1->dominated_by_number++;
+            double delta_weight_u1 = v_is_newly_dominated * v->vote;
+            if(u1->dominated_by_number == 1) {    // if v is the first one to dominate u1
+                delta_weight_u1 += u1->vote; // u1 no longer votes for itself
+                undominated_vertices--;
+                for(uint32_t i_u1 = 0; i_u1 < u1->degree; i_u1++) {
+                    Vertex* u2 = u1->neighbors[i_u1];
+                    // because u1 is now dominated, u2 no longer receives u1's vote
+                    if(u2->is_in_pq) {
+                        pq_decrease_priority(pq, u2, pq_get_key(pq, u2) - u1->vote);
+                    }
+                }
+            }
+            if(u1->is_in_pq && delta_weight_u1 > 0) {
+                pq_decrease_priority(pq, u1, pq_get_key(pq, u1) - delta_weight_u1);
             }
         }
     }

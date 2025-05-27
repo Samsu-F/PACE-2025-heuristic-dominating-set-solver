@@ -11,8 +11,10 @@
 
 
 
+// fields are ordered by their expected size, to minimize padding as much as possible
 typedef struct Vertex {
     struct Vertex** neighbors; // array of pointers to the neighbors
+    double vote;
     uint32_t id;               // the name of the vertex. Must be unique and must not be 0.
     uint32_t degree;           // this is the length of the array neighbors
     uint32_t dominated_by_number; // the number of neighbors in the ds this vertex is dominated by. For use by the greedy solver.
