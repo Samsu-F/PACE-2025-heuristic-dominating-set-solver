@@ -35,7 +35,7 @@ static bool verify_m(Graph* g)
 
 
 
-bool uint32_t_greater_tmp(const uint32_t a, const uint32_t b)
+bool double_greater_tmp(const double a, const double b)
 {
     return a > b;
 }
@@ -44,7 +44,7 @@ bool uint32_t_greater_tmp(const uint32_t a, const uint32_t b)
 
 static void test_pq(Graph* g)
 {
-    PQueue* pq = pq_new(uint32_t_greater_tmp);
+    PQueue* pq = pq_new(double_greater_tmp);
     assert(pq);
     for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
         Vertex* v = g->vertices[vertices_idx];
@@ -59,10 +59,10 @@ static void test_pq(Graph* g)
     while(!pq_is_empty(pq)) {
         KeyValPair kv = pq_pop(pq);
         Vertex* v = kv.val;
-        fprintf(stderr, "kv.key == %" PRIu32 "\tv->id == %" PRIu32 "\tptr %p\n", kv.key, v->id, (void*)v);
-        assert(kv.key % 10000000 == v->id);
-        assert(((v->id % 10 != 0) && kv.key / 10000000 == v->id % 10) ||
-               ((v->id % 10 == 0) && kv.key - 100000000 == v->id));
+        fprintf(stderr, "kv.key == %f\tv->id == %" PRIu32 "\tptr %p\n", kv.key, v->id, (void*)v);
+        assert((uint32_t)kv.key % 10000000 == v->id);
+        assert(((v->id % 10 != 0) && (uint32_t)kv.key / 10000000 == v->id % 10) ||
+               ((v->id % 10 == 0) && (uint32_t)kv.key - 100000000 == v->id));
     }
 }
 
@@ -284,7 +284,7 @@ int main(int argc, char* argv[])
             size_t new_ds_size = greedy_remove_and_refill(g, removal_probability, current_best_ds_size);
             if(new_ds_size <= current_best_ds_size) {
                 assert(fprintf(stderr, "%s new_ds_size == %zu\tprev best: %zu\t\tremoval_probability == %.3f\tgreedy_repeat == %zu\n",
-                               new_ds_size < current_best_ds_size ? "IMPROVEMENT:" : "EQUAL:      ", new_ds_size,
+                               new_ds_size < current_best_ds_size ? "IMPROVEMENT:" : "EQUAL: =    ", new_ds_size,
                                current_best_ds_size, removal_probability, greedy_repeat));
                 for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
                     dominated_by_numbers[vertices_idx] = g->vertices[vertices_idx]->dominated_by_number;
@@ -301,8 +301,8 @@ int main(int argc, char* argv[])
                 }
             }
             if(g_sigterm_received) {
-                fprintf(stderr, "g_sigterm_received == true\tgreedy_repeat == %zu, final ds size == %zu\n",
-                        greedy_repeat, current_best_ds_size);
+                fprintf(stderr, "g_sigterm_received == true\tfinal ds size == %zu   \tgreedy iterations == %zu\n",
+                        current_best_ds_size, greedy_repeat);
                 fflush(stderr);
                 print_solution(g, current_best_ds_size);
                 break;

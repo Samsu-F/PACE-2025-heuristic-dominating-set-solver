@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <assert.h>
 
+#include "assert_allow_float_equal.h"
+
 
 
 size_t g_reconstruct_counter = 0;
@@ -41,7 +43,7 @@ size_t _make_minimal(Graph* g, size_t current_ds_size)
 
 
 // comparison function for the priority queue
-bool uint32_t_greater(const uint32_t a, const uint32_t b)
+bool double_greater(const double a, const double b)
 {
     return a > b;
 }
@@ -51,7 +53,7 @@ bool uint32_t_greater(const uint32_t a, const uint32_t b)
 size_t greedy(Graph* g)
 {
     uint32_t undominated_vertices = 0; // the total number of undominated vertices remaining in the graph
-    PQueue* pq = pq_new(uint32_t_greater);
+    PQueue* pq = pq_new(double_greater);
     if(!pq) {
         perror("greedy: pq_new failed");
         exit(EXIT_FAILURE);
@@ -229,7 +231,7 @@ size_t greedy_remove_and_refill(Graph* g, double removal_probability, size_t cur
         current_ds_size = _remove_randomly_from_ds(g, removal_probability, current_ds_size);
     }
 
-    PQueue* pq = pq_new(uint32_t_greater);
+    PQueue* pq = pq_new(double_greater);
     if(!pq) {
         perror("greedy: pq_new failed");
         exit(EXIT_FAILURE);
