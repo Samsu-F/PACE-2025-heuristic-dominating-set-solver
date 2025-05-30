@@ -480,7 +480,7 @@ static bool _rule_2_reduce_vertices(Graph* g, Vertex* v, Vertex* w)
     assert(g != NULL && v != NULL && w != NULL);
     assert((!v->is_removed) && (!w->is_removed));
     assert(v != w && v->id != w->id);
-    // assert(v->degree >= 2 && w->degree >= 2);  ///// DEBUG, put it back ///// DEBUG, put it back ///// DEBUG, put it back ///// DEBUG, put it back ///// DEBUG, put it back ///// DEBUG, put it back /////
+    // assert(v->degree >= 2 && w->degree >= 2);  ///// DEBUG, put it back ///// TODO fix reduce function or check if this is fine
 
     // setup
     Vertex** n2 = malloc(2 * (size_t)(v->degree + w->degree) * sizeof(Vertex*)); // block allocation for n2 and n3
@@ -689,7 +689,7 @@ void reduce(Graph* g, float time_budget_total, float time_budget_rule2)
             Vertex* v = g->vertices[vertices_idx];
             next_vertices_idx = vertices_idx + 1;
 
-            if((loop_iteration++ % 256) == 0) {
+            if((loop_iteration++ % 8) == 0) {
                 clock_t current_time = clock();
                 time_remaining_total = current_time < deadline_total;
                 time_remaining_rule2 = current_time < deadline_rule2;
@@ -734,6 +734,20 @@ void reduce(Graph* g, float time_budget_total, float time_budget_rule2)
                             another_loop = true;
                             i = 0;
                             break;
+                        }
+                        for(uint32_t i_u1 = 0; i_u1 < 10 && i_u1 < u1->degree; i_u1++) {
+                            Vertex* u_dist2 = u1->neighbors[i_u1];
+                            // assert(fprintf(stderr, "v: %"PRIu32"\tu1: %"PRIu32"\tu2: %"PRIu32"\tu_dist2: %"PRIu32"\t\t\tloop_iteration == %zu\n", v->id,u1->id,u2->id,u_dist2->id,loop_iteration));
+                            if(u_dist2 == u2){
+                                break; // ==> u1 and u2 are adcacent ==> this loop for distance 3 is pointless
+                            }
+                            if(u_dist2 != v && (!u_dist2->is_removed) && (!u2->is_removed) && _rule_2_reduce_vertices(g, u_dist2, u2)) {
+                                another_loop = true;
+                                i = 0;
+                                if(u2->is_removed) {
+                                    break;
+                                }
+                            }
                         }
                     }
                 }
