@@ -143,7 +143,6 @@ static size_t _local_deconstruction(Graph* g, const size_t current_ds_size)
         free(to_free);
     }
 
-
     return current_ds_size - count_removed;
 }
 

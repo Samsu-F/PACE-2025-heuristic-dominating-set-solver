@@ -17,10 +17,10 @@ PROFILE_FLAGS = -p
 BUILD_DIR = build
 
 # Target executable
-TARGET = $(BUILD_DIR)/main
+TARGET = $(BUILD_DIR)/heuristic_solver
 
 # Source files
-SRCS = graph.c reduction.c pqueue.c greedy.c dynamic_array.c main.c
+SRCS = graph.c reduction.c pqueue.c greedy.c dynamic_array.c heuristic_solver.c
 
 # Header files
 HDRS = graph.h reduction.h greedy.h pqueue.h dynamic_array.h
