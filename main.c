@@ -3,158 +3,77 @@
 #include <time.h>
 #include <assert.h>
 #include <string.h>
-#include <signal.h>
 
 #include "graph.h"
 #include "reduction.h"
 #include "greedy.h"
-#include "weighted_sampling_tree.h" // for debugging and testing
 
 
 
-// DynamicArray* g_sigterm_handler_ds = NULL;
-// DynamicArray* g_sigterm_handler_fixed = NULL;
-static bool g_sigterm_received = false;
+// static bool verify_m(Graph* g)
+// {
+//     size_t m = 0;
+//     for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
+//         Vertex* v = g->vertices[vertices_idx];
+//         m += v->degree;
+//     }
+//     m /= 2; // each edge was counted twice
+//     if(g->m != m) {
+//         fprintf(stderr, "verification failed:\n\tm == %zu, g->m == %" PRIu32 "\n", m, g->m);
+//         exit(EXIT_FAILURE);
+//         return false;
+//     }
+//     return true;
+// }
 
 
 
-static bool verify_m(Graph* g)
-{
-    size_t m = 0;
-    for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
-        Vertex* v = g->vertices[vertices_idx];
-        m += v->degree;
-    }
-    m /= 2; // each edge was counted twice
-    if(g->m != m) {
-        fprintf(stderr, "verification failed:\n\tm == %zu, g->m == %" PRIu32 "\n", m, g->m);
-        exit(EXIT_FAILURE);
-        return false;
-    }
-    return true;
-}
+// bool double_greater_tmp(const double a, const double b)
+// {
+//     return a > b;
+// }
 
 
 
-bool uint32_t_greater_tmp(const uint32_t a, const uint32_t b)
-{
-    return a > b;
-}
+// static void test_pq(Graph* g)
+// {
+//     PQueue* pq = pq_new(double_greater_tmp);
+//     assert(pq);
+//     for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
+//         Vertex* v = g->vertices[vertices_idx];
+//         pq_insert(pq, (KeyValPair) {.key = v->id + 100000000, .val = v});
+//     }
+//     for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
+//         Vertex* v = g->vertices[vertices_idx];
+//         if(v->id % 10 > 0) {
+//             pq_decrease_priority(pq, v, pq_get_key(pq, v) - 100000000 + (v->id % 10) * 10000000);
+//         }
+//     }
+//     while(!pq_is_empty(pq)) {
+//         KeyValPair kv = pq_pop(pq);
+//         Vertex* v = kv.val;
+//         fprintf(stderr, "kv.key == %f\tv->id == %" PRIu32 "\tptr %p\n", kv.key, v->id, (void*)v);
+//         assert((uint32_t)kv.key % 10000000 == v->id);
+//         assert(((v->id % 10 != 0) && (uint32_t)kv.key / 10000000 == v->id % 10) ||
+//                ((v->id % 10 == 0) && (uint32_t)kv.key - 100000000 == v->id));
+//     }
+// }
 
 
 
-static void test_pq(Graph* g)
-{
-    PQueue* pq = pq_new(uint32_t_greater_tmp);
-    assert(pq);
-    for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
-        Vertex* v = g->vertices[vertices_idx];
-        pq_insert(pq, (KeyValPair) {.key = v->id + 100000000, .val = v});
-    }
-    for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
-        Vertex* v = g->vertices[vertices_idx];
-        if(v->id % 10 > 0) {
-            pq_decrease_priority(pq, v, pq_get_key(pq, v) - 100000000 + (v->id % 10) * 10000000);
-        }
-    }
-    while(!pq_is_empty(pq)) {
-        KeyValPair kv = pq_pop(pq);
-        Vertex* v = kv.val;
-        fprintf(stderr, "kv.key == %" PRIu32 "\tv->id == %" PRIu32 "\tptr %p\n", kv.key, v->id, (void*)v);
-        assert(kv.key % 10000000 == v->id);
-        assert(((v->id % 10 != 0) && kv.key / 10000000 == v->id % 10) ||
-               ((v->id % 10 == 0) && kv.key - 100000000 == v->id));
-    }
-}
 
 
-
-static void test_weighted_sampling_tree(Graph* g)
-{
-    double* weights = malloc(g->n * sizeof(double));
-    assert(weights);
-    for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
-        Vertex* v = g->vertices[vertices_idx];
-        weights[vertices_idx] = (double)v->id;
-    }
-    WeightedSamplingTree* wst = wst_new(weights, g->n);
-    assert(wst);
-    for(size_t i = 0; i < 200; i++) {
-        size_t index = wst_sample_with_replacement(wst);
-        // fprintf(stderr, "sample with replacement: index %zu\tid == %" PRIu32 "\n", index,
-        //         g->vertices[index]->id);
-    }
-    for(size_t i = 0; i < g->n - 1; i++) {
-        size_t index = wst_sample_without_replacement(wst);
-        // fprintf(stderr, "sample without replacement: index %zu\tid == %" PRIu32 "\t\t\tg->n == %" PRIu32 ",\ti == %zu\n",
-        //         index, g->vertices[index]->id, g->n, i);
-    }
-    // fprintf(stderr, "expecting an assertion fail now:\n");
-    // size_t index = wst_sample_without_replacement(wst);
-    // fprintf(stderr, "no error occurred, this should not happen.\n");
-
-
-    // size_t size = 10000;
-    // double* weights = malloc(size * sizeof(double));
-    // assert(weights);
-    // for(size_t i = 0; i < size; i++) {
-    //     weights[i] = 2.0 * (double)i;
-    // }
-    // WeightedSamplingTree* wst = wst_new(weights, size);
-    // assert(wst);
-    // for(size_t i = 0; i < 20; i++) {
-    //     size_t index = wst_sample_with_replacement(wst);
-    //     fprintf(stderr, "sample with replacement: index %zu\n", index);
-    // }
-    // for(size_t i = 0; i < size - 1; i++) {
-    //     size_t index = wst_sample_without_replacement(wst);
-    //     fprintf(stderr, "sample without replacement: index %zu\n", index);
-    // }
-    // fprintf(stderr, "expecting an error now:\n");
-    // size_t index = wst_sample_without_replacement(wst);
-    // fprintf(stderr, "no error occurred, this should not happen.\n");
-}
-
-
-
-static void print_solution(DynamicArray* fixed, DynamicArray* ds)
-{
-    // fprintf(stderr, "print_solution called\n");
-    printf("%zu\n", fixed->size + (size_t)ds->size);
-    for(size_t fixed_idx = 0; fixed_idx < fixed->size; fixed_idx++) {
-        Vertex* v = fixed->vertices[fixed_idx];
-        printf("%" PRIu32 "\n", v->id);
-    }
-    for(size_t i = 0; i < ds->size; i++) {
-        printf("%" PRIu32 "\n", ds->vertices[i]->id);
-    }
-    fflush(stdout);
-}
-
-
-
-// just temporary, not good
-static void clone_dynamic_array(DynamicArray* src, DynamicArray* dst)
-{
-    dst->size = src->size;
-    dst->capacity = src->capacity;
-    dst->vertices = malloc(src->capacity * sizeof(Vertex*));
-    if(dst->vertices == NULL) {
-        exit(EXIT_FAILURE);
-    }
-    memcpy(dst->vertices, src->vertices, src->size * sizeof(Vertex*));
-}
-
-
-
-// just temporary, not good
-void sigterm_handler(int sig)
-{
-    // fprintf(stderr, "sigterm handler called\n");
-    g_sigterm_received = true;
-    // print_solution(g_sigterm_handler_fixed, g_sigterm_handler_ds);
-    // exit(EXIT_SUCCESS);
-}
+// // just temporary, not good
+// static void clone_dynamic_array(DynamicArray* src, DynamicArray* dst)
+// {
+//     dst->size = src->size;
+//     dst->capacity = src->capacity;
+//     dst->vertices = malloc(src->capacity * sizeof(Vertex*));
+//     if(dst->vertices == NULL) {
+//         exit(EXIT_FAILURE);
+//     }
+//     memcpy(dst->vertices, src->vertices, src->size * sizeof(Vertex*));
+// }
 
 
 
@@ -184,9 +103,9 @@ int main(int argc, char* argv[])
     }
 
 
-    clock_t time_parsing_start = clock();
+    // clock_t time_parsing_start = clock();
     Graph* g = graph_parse(input_file);
-    clock_t time_parsing_end = clock();
+    // clock_t time_parsing_end = clock();
 
     if(close_input_file) {
         fclose(input_file);
@@ -207,12 +126,6 @@ int main(int argc, char* argv[])
 
     // clock_t time_reduction_end = clock();
     // uint32_t reduced_n = g->n, reduced_m = g->m;
-
-    uint32_t* dominated_by_numbers = malloc(g->n * sizeof(uint32_t));
-    if(!dominated_by_numbers)
-        exit(1);
-    for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++)
-        dominated_by_numbers[vertices_idx] = g->vertices[vertices_idx]->dominated_by_number;
 
     // clock_t time_greedy_start = clock();
     // DynamicArray ds_greedy = greedy(g);
@@ -281,85 +194,10 @@ int main(int argc, char* argv[])
 
 
 
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    iterated_greedy_solver(g);
 
-
-
-    // if(signal(SIGTERM, sigterm_handler) == SIG_ERR) {
-    //     perror("registering sigterm handler failed");
-    //     return EXIT_FAILURE;
-    // }
-    // // g_sigterm_handler_fixed = &(g->fixed);
-
-
-    {
-        struct sigaction sa;
-        sa.sa_handler = sigterm_handler;
-        sigemptyset(&sa.sa_mask);
-        sa.sa_flags = SA_RESTART; // 0 or SA_RESTART if syscalls should be restarted
-        if(sigaction(SIGTERM, &sa, NULL) == -1) {
-            perror("sigaction failed");
-            exit(EXIT_FAILURE);
-        }
-    }
-
-
-    {
-        // for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) { // restore state after reduction for testing
-        //     g->vertices[vertices_idx]->dominated_by_number = dominated_by_numbers[vertices_idx];
-        //     g->vertices[vertices_idx]->is_in_pq = false;
-        // }
-
-        // DynamicArray ds = greedy_random(g);
-        DynamicArray current_best_ds = greedy(g);
-        // g_sigterm_handler_ds = &current_best_ds;
-        for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++)
-            dominated_by_numbers[vertices_idx] = g->vertices[vertices_idx]->dominated_by_number;
-        assert(fprintf(stderr, "\nafter initial greedy: current_best_ds.size == %zu\n",
-                       current_best_ds.size));
-        double removal_probability = 0.05;
-        DynamicArray ds;
-        clone_dynamic_array(&current_best_ds, &ds);
-        for(size_t greedy_repeat = 0; true; greedy_repeat++) {
-            // greedy_random_remove_and_refill(g, &ds, removal_probability);
-            greedy_remove_and_refill(g, &ds, removal_probability);
-            if(ds.size <= current_best_ds.size) {
-                assert(fprintf(stderr, "%s ds.size == %zu\tprev best: %zu\t\tremoval_probability == %.3f\tgreedy_repeat == %zu\n",
-                               ds.size < current_best_ds.size ? "IMPROVEMENT:" : "EQUAL:      ", ds.size,
-                               current_best_ds.size, removal_probability, greedy_repeat));
-                for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++)
-                    dominated_by_numbers[vertices_idx] = g->vertices[vertices_idx]->dominated_by_number;
-                // g_sigterm_handler_ds = &ds;
-                da_free_internals(&current_best_ds);
-                clone_dynamic_array(&ds, &current_best_ds);
-                // g_sigterm_handler_ds = &current_best_ds;
-            }
-            else { // restore previous state
-                assert(fprintf(stderr, "worse:       ds.size == %zu\tprev best: %zu\t\tremoval_probability == %.3f\tgreedy_repeat == %zu\n",
-                               ds.size, current_best_ds.size, removal_probability, greedy_repeat));
-                for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++)
-                    g->vertices[vertices_idx]->dominated_by_number = dominated_by_numbers[vertices_idx];
-                da_free_internals(&ds);
-                clone_dynamic_array(&current_best_ds, &ds);
-            }
-            if(g_sigterm_received) {
-                fprintf(stderr, "g_sigterm_received == true\tgreedy_repeat == %zu, final ds size == %zu\n", greedy_repeat, current_best_ds.size);
-                fflush(stderr);
-                print_solution(&(g->fixed), &current_best_ds);
-                break;
-            }
-        }
-        da_free_internals(&ds);
-        da_free_internals(&current_best_ds);
-    }
-
-
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-
-    free(dominated_by_numbers);
+    // free(dominated_by_numbers);
+    // free(in_ds);
 
     graph_free(g);
     // da_free_internals(&ds_greedy);

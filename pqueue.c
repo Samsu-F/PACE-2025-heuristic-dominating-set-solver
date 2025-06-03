@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <assert.h>
 
+#include "assert_allow_float_equal.h"
+
 
 
 #define PQ_INIT_SIZE        64 // start with enough space for x key value pairs
@@ -240,5 +242,5 @@ void pq_decrease_priority(PQueue* q, Vertex* v, const pq_keytype new_key)
     q->nodes[idx].key = new_key;
     _pq_heapify_node(q, idx);
 
-    assert(q->nodes[v->pq_kv_idx].key == new_key); // does not prove that v->pq_kv_idx is set correctly, but it is definitely not correct if this fails
+    assert_allow_float_equal(q->nodes[v->pq_kv_idx].key == new_key); // does not prove that v->pq_kv_idx is set correctly, but it is definitely not correct if this fails
 }

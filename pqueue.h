@@ -7,11 +7,12 @@
 #include "graph.h"
 
 
+
 // Array based max heap implementation of a priority queue
 
 
 
-#define PQ_KEY_TYPE uint32_t
+#define PQ_KEY_TYPE double
 
 
 
