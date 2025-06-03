@@ -3,17 +3,11 @@
 
 #include "graph.h"
 #include "pqueue.h"
-#include "dynamic_array.h"
 
 
 
-size_t greedy(Graph* g);
-
-size_t greedy_remove_and_refill(Graph* g, double removal_probability, size_t current_ds_size);
-
-size_t greedy_vote_remove_and_refill(Graph* g, double removal_probability, size_t current_ds_size);
-
-void init_votes(Graph* g);
+// runs iterated greedy algorithm on the graph until a sigterm signal is received
+void iterated_greedy_solver(Graph* g);
 
 
 

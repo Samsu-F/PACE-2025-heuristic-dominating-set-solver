@@ -3,7 +3,6 @@
 #include <time.h>
 #include <assert.h>
 #include <string.h>
-#include <signal.h>
 
 #include "graph.h"
 #include "reduction.h"
@@ -11,107 +10,70 @@
 
 
 
-// DynamicArray* g_sigterm_handler_ds = NULL;
-// DynamicArray* g_sigterm_handler_fixed = NULL;
-static bool g_sigterm_received = false;
+// static bool verify_m(Graph* g)
+// {
+//     size_t m = 0;
+//     for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
+//         Vertex* v = g->vertices[vertices_idx];
+//         m += v->degree;
+//     }
+//     m /= 2; // each edge was counted twice
+//     if(g->m != m) {
+//         fprintf(stderr, "verification failed:\n\tm == %zu, g->m == %" PRIu32 "\n", m, g->m);
+//         exit(EXIT_FAILURE);
+//         return false;
+//     }
+//     return true;
+// }
 
 
 
-static bool verify_m(Graph* g)
-{
-    size_t m = 0;
-    for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
-        Vertex* v = g->vertices[vertices_idx];
-        m += v->degree;
-    }
-    m /= 2; // each edge was counted twice
-    if(g->m != m) {
-        fprintf(stderr, "verification failed:\n\tm == %zu, g->m == %" PRIu32 "\n", m, g->m);
-        exit(EXIT_FAILURE);
-        return false;
-    }
-    return true;
-}
+// bool double_greater_tmp(const double a, const double b)
+// {
+//     return a > b;
+// }
 
 
 
-bool double_greater_tmp(const double a, const double b)
-{
-    return a > b;
-}
+// static void test_pq(Graph* g)
+// {
+//     PQueue* pq = pq_new(double_greater_tmp);
+//     assert(pq);
+//     for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
+//         Vertex* v = g->vertices[vertices_idx];
+//         pq_insert(pq, (KeyValPair) {.key = v->id + 100000000, .val = v});
+//     }
+//     for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
+//         Vertex* v = g->vertices[vertices_idx];
+//         if(v->id % 10 > 0) {
+//             pq_decrease_priority(pq, v, pq_get_key(pq, v) - 100000000 + (v->id % 10) * 10000000);
+//         }
+//     }
+//     while(!pq_is_empty(pq)) {
+//         KeyValPair kv = pq_pop(pq);
+//         Vertex* v = kv.val;
+//         fprintf(stderr, "kv.key == %f\tv->id == %" PRIu32 "\tptr %p\n", kv.key, v->id, (void*)v);
+//         assert((uint32_t)kv.key % 10000000 == v->id);
+//         assert(((v->id % 10 != 0) && (uint32_t)kv.key / 10000000 == v->id % 10) ||
+//                ((v->id % 10 == 0) && (uint32_t)kv.key - 100000000 == v->id));
+//     }
+// }
 
 
 
-static void test_pq(Graph* g)
-{
-    PQueue* pq = pq_new(double_greater_tmp);
-    assert(pq);
-    for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
-        Vertex* v = g->vertices[vertices_idx];
-        pq_insert(pq, (KeyValPair) {.key = v->id + 100000000, .val = v});
-    }
-    for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
-        Vertex* v = g->vertices[vertices_idx];
-        if(v->id % 10 > 0) {
-            pq_decrease_priority(pq, v, pq_get_key(pq, v) - 100000000 + (v->id % 10) * 10000000);
-        }
-    }
-    while(!pq_is_empty(pq)) {
-        KeyValPair kv = pq_pop(pq);
-        Vertex* v = kv.val;
-        fprintf(stderr, "kv.key == %f\tv->id == %" PRIu32 "\tptr %p\n", kv.key, v->id, (void*)v);
-        assert((uint32_t)kv.key % 10000000 == v->id);
-        assert(((v->id % 10 != 0) && (uint32_t)kv.key / 10000000 == v->id % 10) ||
-               ((v->id % 10 == 0) && (uint32_t)kv.key - 100000000 == v->id));
-    }
-}
 
 
-
-static void print_solution(Graph* g, size_t ds_size)
-{
-    // fprintf(stderr, "print_solution called\n");
-    printf("%zu\n", g->fixed.size + ds_size);
-    for(size_t fixed_idx = 0; fixed_idx < g->fixed.size; fixed_idx++) {
-        Vertex* v = g->fixed.vertices[fixed_idx];
-        printf("%" PRIu32 "\n", v->id);
-    }
-    size_t ds_vertices_found_in_g = 0;
-    for(size_t i_vertices = 0; i_vertices < g->n; i_vertices++) {
-        Vertex* v = g->vertices[i_vertices];
-        if(v->is_in_ds) {
-            printf("%" PRIu32 "\n", v->id);
-            ds_vertices_found_in_g++;
-        }
-    }
-    fflush(stdout);
-    assert(ds_vertices_found_in_g == ds_size);
-}
-
-
-
-// just temporary, not good
-static void clone_dynamic_array(DynamicArray* src, DynamicArray* dst)
-{
-    dst->size = src->size;
-    dst->capacity = src->capacity;
-    dst->vertices = malloc(src->capacity * sizeof(Vertex*));
-    if(dst->vertices == NULL) {
-        exit(EXIT_FAILURE);
-    }
-    memcpy(dst->vertices, src->vertices, src->size * sizeof(Vertex*));
-}
-
-
-
-// just temporary, not good
-void sigterm_handler(int sig)
-{
-    // fprintf(stderr, "sigterm handler called\n");
-    g_sigterm_received = true;
-    // print_solution(g_sigterm_handler_fixed, g_sigterm_handler_ds);
-    // exit(EXIT_SUCCESS);
-}
+// // just temporary, not good
+// static void clone_dynamic_array(DynamicArray* src, DynamicArray* dst)
+// {
+//     dst->size = src->size;
+//     dst->capacity = src->capacity;
+//     dst->vertices = malloc(src->capacity * sizeof(Vertex*));
+//     if(dst->vertices == NULL) {
+//         exit(EXIT_FAILURE);
+//     }
+//     memcpy(dst->vertices, src->vertices, src->size * sizeof(Vertex*));
+// }
 
 
 
@@ -141,9 +103,9 @@ int main(int argc, char* argv[])
     }
 
 
-    clock_t time_parsing_start = clock();
+    // clock_t time_parsing_start = clock();
     Graph* g = graph_parse(input_file);
-    clock_t time_parsing_end = clock();
+    // clock_t time_parsing_end = clock();
 
     if(close_input_file) {
         fclose(input_file);
@@ -164,15 +126,6 @@ int main(int argc, char* argv[])
 
     // clock_t time_reduction_end = clock();
     // uint32_t reduced_n = g->n, reduced_m = g->m;
-
-    uint32_t* dominated_by_numbers = malloc(g->n * sizeof(uint32_t));
-    bool* in_ds = calloc(g->n, sizeof(bool));
-    if(!dominated_by_numbers || !in_ds)
-        exit(1);
-    for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
-        dominated_by_numbers[vertices_idx] = g->vertices[vertices_idx]->dominated_by_number;
-        assert(!(g->vertices[vertices_idx]->is_in_ds));
-    }
 
     // clock_t time_greedy_start = clock();
     // DynamicArray ds_greedy = greedy(g);
@@ -241,90 +194,10 @@ int main(int argc, char* argv[])
 
 
 
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    iterated_greedy_solver(g);
 
-
-
-    // if(signal(SIGTERM, sigterm_handler) == SIG_ERR) {
-    //     perror("registering sigterm handler failed");
-    //     return EXIT_FAILURE;
-    // }
-    // // g_sigterm_handler_fixed = &(g->fixed);
-
-
-    {
-        struct sigaction sa;
-        sa.sa_handler = sigterm_handler;
-        sigemptyset(&sa.sa_mask);
-        sa.sa_flags = SA_RESTART; // 0 or SA_RESTART if syscalls should be restarted
-        if(sigaction(SIGTERM, &sa, NULL) == -1) {
-            perror("sigaction failed");
-            exit(EXIT_FAILURE);
-        }
-    }
-
-
-    {
-        init_votes(g);
-
-        // for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) { // restore state after reduction for testing
-        //     g->vertices[vertices_idx]->dominated_by_number = dominated_by_numbers[vertices_idx];
-        //     g->vertices[vertices_idx]->is_in_pq = false;
-        // }
-
-        // DynamicArray ds = greedy_random(g);
-        size_t current_best_ds_size = greedy(g);
-        // g_sigterm_handler_ds = &current_best_ds;
-        for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
-            dominated_by_numbers[vertices_idx] = g->vertices[vertices_idx]->dominated_by_number;
-            in_ds[vertices_idx] = g->vertices[vertices_idx]->is_in_ds;
-        }
-        assert(fprintf(stderr, "\nafter initial greedy: current_best_ds_size == %zu\n", current_best_ds_size));
-        double removal_probability = 0.05;
-        for(size_t greedy_repeat = 0; true; greedy_repeat++) {
-            size_t new_ds_size;
-            if(greedy_repeat % 2 == 0) {
-                new_ds_size = greedy_remove_and_refill(g, removal_probability, current_best_ds_size);
-            }
-            else {
-                new_ds_size = greedy_vote_remove_and_refill(g, removal_probability, current_best_ds_size);
-            }
-            if(new_ds_size <= current_best_ds_size) {
-                assert(fprintf(stderr, "%s new_ds_size == %zu\tprev best: %zu\t\tremoval_probability == %.3f\tgreedy_repeat == %zu\n",
-                               new_ds_size < current_best_ds_size ? "IMPROVEMENT:" : "EQUAL: =    ", new_ds_size,
-                               current_best_ds_size, removal_probability, greedy_repeat));
-                for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
-                    dominated_by_numbers[vertices_idx] = g->vertices[vertices_idx]->dominated_by_number;
-                    in_ds[vertices_idx] = g->vertices[vertices_idx]->is_in_ds;
-                }
-                current_best_ds_size = new_ds_size;
-            }
-            else { // restore previous state
-                assert(fprintf(stderr, "worse:       new_ds_size == %zu\tprev best: %zu\t\tremoval_probability == %.3f\tgreedy_repeat == %zu\n",
-                               new_ds_size, current_best_ds_size, removal_probability, greedy_repeat));
-                for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
-                    g->vertices[vertices_idx]->dominated_by_number = dominated_by_numbers[vertices_idx];
-                    g->vertices[vertices_idx]->is_in_ds = in_ds[vertices_idx];
-                }
-            }
-            if(g_sigterm_received) {
-                fprintf(stderr, "g_sigterm_received == true\tfinal ds size == %zu   \tgreedy iterations == %zu\n",
-                        current_best_ds_size, greedy_repeat);
-                fflush(stderr);
-                print_solution(g, current_best_ds_size);
-                break;
-            }
-        }
-    }
-
-
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-
-    free(dominated_by_numbers);
-    free(in_ds);
+    // free(dominated_by_numbers);
+    // free(in_ds);
 
     graph_free(g);
     // da_free_internals(&ds_greedy);
