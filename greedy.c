@@ -253,34 +253,10 @@ static void _register_sigterm_handler(void)
 
 
 
-static void _print_solution(Graph* g, size_t ds_size)
-{
-    assert(g != NULL && g->vertices != NULL && g->fixed.vertices != NULL);
-    printf("%zu\n", g->fixed.size + ds_size);
-    for(size_t fixed_idx = 0; fixed_idx < g->fixed.size; fixed_idx++) {
-        Vertex* v = g->fixed.vertices[fixed_idx];
-        printf("%" PRIu32 "\n", v->id);
-    }
-#ifndef NDEBUG
-    size_t ds_vertices_found_in_g = 0; // this variable is just for an assertion
-#endif
-    for(size_t i_vertices = 0; i_vertices < g->n; i_vertices++) {
-        Vertex* v = g->vertices[i_vertices];
-        if(v->is_in_ds) {
-            printf("%" PRIu32 "\n", v->id);
-#ifndef NDEBUG
-            ds_vertices_found_in_g++;
-#endif
-        }
-    }
-    fflush(stdout);
-    assert(ds_vertices_found_in_g == ds_size);
-}
-
-
-
-// runs iterated greedy algorithm on the graph until a sigterm signal is received
-void iterated_greedy_solver(Graph* g)
+// runs iterated greedy algorithm on the graph until a sigterm signal is received.
+// v->is_in_ds must be set to false for all vertices before calling this function.
+// returns the number of vertices in the dominating set.
+size_t iterated_greedy_solver(Graph* g)
 {
     const double removal_probability = 0.05; // can be tweaked
     _register_sigterm_handler();
@@ -336,8 +312,8 @@ void iterated_greedy_solver(Graph* g)
     fprintf(stderr, "g_sigterm_received == %d\t\tfinal ds size == %zu   \tgreedy iterations == %zu\n",
             _g_sigterm_received, current_ds_size, ig_iteration);
     fflush(stderr);
-    _print_solution(g, current_ds_size);
 
     free(in_ds);
     free(dominated_by_numbers);
+    return current_ds_size;
 }
