@@ -80,7 +80,7 @@ static size_t _remove_randomly_from_ds(Graph* g, double removal_probability, siz
 
 
 
-// TODO: use more efficient queue implementation specifically designed for the use case
+// TODO: use more efficient queue implementation specifically adapted for the use case
 typedef struct Queue {
     struct Queue* next;
     Vertex* val;
@@ -107,6 +107,7 @@ static size_t _local_deconstruction(Graph* g, const size_t current_ds_size)
     Queue* q_tail = q_head;
 
     size_t count_removed = 0;
+    // size_t ds_vertices_queued = 0;
     while(q_head != NULL && count_removed < 25) {
         Vertex* v = q_head->val;
 
@@ -119,10 +120,12 @@ static size_t _local_deconstruction(Graph* g, const size_t current_ds_size)
             count_removed++;
         }
 
-        for(uint32_t i_v = 0; i_v < v->degree; i_v++) {
+        for(uint32_t i_v = 0; i_v < v->degree /* && ds_vertices_queued < 25 */; i_v++) {
             Vertex* u = v->neighbors[i_v];
             if(!u->queued) {
                 u->queued = true;
+                // if(u->is_in_ds)
+                //     ds_vertices_queued++;
                 Queue* new_q_elem = calloc(1, sizeof(Queue));
                 if(!new_q_elem)
                     exit(42);
