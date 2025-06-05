@@ -480,7 +480,7 @@ static bool _rule_2_reduce_vertices(Graph* g, Vertex* v, Vertex* w)
     assert(g != NULL && v != NULL && w != NULL);
     assert((!v->is_removed) && (!w->is_removed));
     assert(v != w && v->id != w->id);
-    // assert(v->degree >= 2 && w->degree >= 2);  ///// DEBUG, put it back ///// DEBUG, put it back ///// DEBUG, put it back ///// DEBUG, put it back ///// DEBUG, put it back ///// DEBUG, put it back /////
+    // assert(v->degree >= 2 && w->degree >= 2);  ///// DEBUG, put it back ///// TODO
 
     // setup
     Vertex** n2 = malloc(2 * (size_t)(v->degree + w->degree) * sizeof(Vertex*)); // block allocation for n2 and n3
