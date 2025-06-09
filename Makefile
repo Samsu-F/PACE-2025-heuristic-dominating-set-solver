@@ -54,7 +54,7 @@ $(TARGET_$(1)): $(OBJS_$(1))
 	@echo Linking $$@
 	$$(QUIET)$$(CC) $$(CFLAGS_$(1)) -o $$@ $$(OBJS_$(1))
 
-$(DIR_$(1))/obj/%.o: %.c | $(DIR_$(1))
+$(DIR_$(1))/obj/%.o: src/%.c | $(DIR_$(1))
 	@echo Compiling $$<
 	$$(QUIET)$$(CC) $$(CFLAGS_$(1)) -c $$< -o $$@
 endef
@@ -84,7 +84,7 @@ help:
 	@echo "Available targets:"
 	@echo "  make release     - Build release (default)"
 	@echo "  make strict      - Build with pedantic warnings"
-	@echo "  make debug       - Build debug with pedantic warnings and with sanitizers"
+	@echo "  make debug       - Build debug with pedantic warnings and sanitizers"
 	@echo "  make clean       - Remove build artifacts"
 	@echo "  make help        - print this help text"
 
