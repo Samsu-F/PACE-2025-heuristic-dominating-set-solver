@@ -1,23 +1,26 @@
-# TODO: improve this Makefile
-
 
 # Compiler
 CC = gcc
+
+QUIET = @
 
 # Compiler flags
 CFLAGS = --std=c17 -D_XOPEN_SOURCE=700 -O3 -W -Wall -Wextra
 PEDANTIC_FLAGS = -Werror -Wpedantic -Wshadow -Wcast-qual -Wstrict-prototypes -Wmissing-prototypes -Wswitch-default -Wcast-align=strict -Wbad-function-cast -Wstrict-overflow=4 -Winline -Wundef -Wnested-externs -Wunreachable-code -Wlogical-op -Wfloat-equal -Wredundant-decls -Wold-style-definition -Wwrite-strings -Wformat=2 -Wconversion -Wno-error=unused-parameter -Wno-error=inline -Wno-error=unreachable-code -Wno-error=unused-function -Wno-error=unused-variable -Wno-error=missing-prototypes
 SANITIZE_FLAGS = -fanalyzer -fsanitize=address -fsanitize=undefined -fsanitize=leak -fsanitize=integer-divide-by-zero -fsanitize=null -fsanitize=signed-integer-overflow -fsanitize=bounds-strict -fsanitize=alignment -fsanitize=object-size -pg
-RELEASE_FLAGS = -O3 -DNDEBUG
-PROFILE_FLAGS = -p
+# PROFILE_FLAGS = -p
+
+RELEASE_FLAGS = $(CFLAGS) -O3 -DNDEBUG
+DEBUG_FLAGS = $(CFLAGS) $(PEDANTIC_FLAGS) $(SANITIZE_FLAGS)
 
 
 
-# The name of the build directory
 BUILD_DIR = build
+RELEASE_DIR = $(BUILD_DIR)/release
+DEBUG_DIR = $(BUILD_DIR)/debug
 
-# Target executable
-TARGET = $(BUILD_DIR)/heuristic_solver
+DEBUG_EXECUTABLE = $(DEBUG_DIR)/heuristic_solver
+RELEASE_EXECUTABLE = $(RELEASE_DIR)/heuristic_solver
 
 # Source files
 SRCS = graph.c reduction.c pqueue.c greedy.c dynamic_array.c heuristic_solver.c
@@ -26,44 +29,54 @@ SRCS = graph.c reduction.c pqueue.c greedy.c dynamic_array.c heuristic_solver.c
 HDRS = graph.h reduction.h greedy.h pqueue.h dynamic_array.h
 
 # Object files
-OBJS = $(addprefix $(BUILD_DIR)/,$(SRCS:.c=.o))
+RELEASE_OBJS = $(addprefix $(RELEASE_DIR)/obj/,$(SRCS:.c=.o))
+DEBUG_OBJS = $(addprefix $(DEBUG_DIR)/obj/,$(SRCS:.c=.o))
 
 
 
 
-# Default target
-release: CFLAGS += $(RELEASE_FLAGS)
-release: clean all
-
-all: $(TARGET)
-
-# Ensure build directory exists
-$(BUILD_DIR):
-	mkdir -p $(BUILD_DIR)
-
-# Rule to link object files and create the executable
-$(TARGET): $(OBJS)
-	@echo Linking $(TARGET)
-	@$(CC) $(CFLAGS) -o $(TARGET) $(OBJS)
-
-# Rule to compile C source files into object files
-$(BUILD_DIR)/%.o: %.c $(HDRS) | $(BUILD_DIR)
-	@echo Compiling $<
-	@$(CC) $(CFLAGS) -c $< -o $@
-
-# Use pedantic flags to enforce quality standards
+# first target ==> default
+release: $(RELEASE_EXECUTABLE)
+all: release
+debug: $(DEBUG_EXECUTABLE)
 pedantic: CFLAGS += $(PEDANTIC_FLAGS)
-pedantic: clean all
+pedantic: $(RELEASE_EXECUTABLE)
 
-sanitize: PEDANTIC_FLAGS += $(SANITIZE_FLAGS)
-sanitize: pedantic
 
-profile: RELEASE_FLAGS += $(PROFILE_FLAGS)
-profile: release
+$(RELEASE_EXECUTABLE): $(RELEASE_OBJS)
+	@echo Linking...
+	$(QUIET)$(CC) $(RELEASE_FLAGS) -o $(RELEASE_EXECUTABLE) $(RELEASE_OBJS)
+
+# compile C source files into object files
+$(RELEASE_DIR)/obj/%.o: %.c $(HDRS) | $(RELEASE_DIR)
+	@echo Compiling $<
+	$(QUIET)$(CC) $(RELEASE_FLAGS) -c $< -o $@
+
+# Ensure directory exists
+$(RELEASE_DIR):
+	$(QUIET)mkdir -p $(RELEASE_DIR)/obj
+
+
+$(DEBUG_EXECUTABLE): $(DEBUG_OBJS)
+	@echo Linking...
+	$(QUIET)$(CC) $(DEBUG_FLAGS) -o $(DEBUG_EXECUTABLE) $(DEBUG_OBJS)
+
+# compile C source files into object files
+$(DEBUG_DIR)/obj/%.o: %.c $(HDRS) | $(DEBUG_DIR)
+	@echo Compiling $<
+	$(QUIET)$(CC) $(DEBUG_FLAGS) -c $< -o $@
+
+# Ensure directory exists
+$(DEBUG_DIR):
+	$(QUIET)mkdir -p $(DEBUG_DIR)/obj
+
 
 # Clean up the build files
 clean:
-	rm -rf $(OBJS) $(TARGET)
-	@rmdir --ignore-fail-on-non-empty $(BUILD_DIR) 2>/dev/null || true
+	$(QUIET)rm -f $(DEBUG_OBJS) $(RELEASE_OBJS) $(DEBUG_EXECUTABLE) $(RELEASE_EXECUTABLE)
+	$(QUIET)rmdir --ignore-fail-on-non-empty $(RELEASE_DIR)/obj $(DEBUG_DIR)/obj 2>/dev/null || true
+	$(QUIET)rmdir --ignore-fail-on-non-empty $(RELEASE_DIR) $(DEBUG_DIR) 2>/dev/null || true
+	$(QUIET)rmdir --ignore-fail-on-non-empty $(BUILD_DIR) 2>/dev/null || true
 
-.PHONY: all clean pedantic sanitize release profile
+.PHONY: clean pedantic release debug
+
