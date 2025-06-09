@@ -43,14 +43,6 @@ static size_t _make_minimal(Graph* g, size_t current_ds_size)
 
 
 
-// comparison function for the priority queue
-static bool _double_greater(const double a, const double b)
-{
-    return a > b;
-}
-
-
-
 // returns a random double x, with +0.0 <= x <= 1.0, uniform distribution
 static double _random(void)
 {
@@ -166,7 +158,7 @@ static size_t _greedy_vote_construct(Graph* g, size_t current_ds_size)
 {
     uint32_t undominated_vertices = 0; // the total number of undominated vertices remaining in the graph
 
-    PQueue* pq = pq_new(_double_greater);
+    PQueue* pq = pq_new();
     if(!pq) {
         perror("greedy: pq_new failed");
         exit(EXIT_FAILURE);

@@ -21,7 +21,6 @@ struct PQueue {
     KeyValPair* nodes;
     size_t n;
     size_t allocated_n;
-    PQKeyCompareFunc keycmp;
 };
 
 
@@ -100,22 +99,22 @@ static void _pq_heapify_node(PQueue* q, size_t node)
         return;
     }
     else if(rchild >= q->n) { // if only the left child exists
-        if(q->keycmp(q->nodes[lchild].key, q->nodes[node].key)) {
+        if(q->nodes[lchild].key > q->nodes[node].key) {
             _pq_swap(q, node, lchild);
             _pq_heapify_node(q, lchild);
         }
         return;
     }
     // at this point, both child nodes exist
-    else if(q->keycmp(q->nodes[lchild].key, q->nodes[rchild].key)) { // if lchild's key has greater priority than rchild's key
-        if(q->keycmp(q->nodes[lchild].key, q->nodes[node].key)) {
+    else if(q->nodes[lchild].key > q->nodes[rchild].key) { // if lchild's key has greater priority than rchild's key
+        if(q->nodes[lchild].key > q->nodes[node].key) {
             _pq_swap(q, node, lchild);
             _pq_heapify_node(q, lchild);
             return;
         }
     }
     else { // if rchild's key has greater priority than lchild's key
-        if(q->keycmp(q->nodes[rchild].key, q->nodes[node].key)) {
+        if(q->nodes[rchild].key > q->nodes[node].key) {
             _pq_swap(q, node, rchild);
             _pq_heapify_node(q, rchild);
             return;
@@ -125,13 +124,12 @@ static void _pq_heapify_node(PQueue* q, size_t node)
 
 
 
-PQueue* pq_new(PQKeyCompareFunc compare)
+PQueue* pq_new(void)
 {
     PQueue* q = malloc(sizeof(PQueue));
     if(!q) {
         return NULL;
     }
-    q->keycmp = compare;
     q->nodes = malloc(PQ_INIT_SIZE * sizeof(KeyValPair));
     if(!q->nodes) {
         free(q);
@@ -174,7 +172,7 @@ void pq_insert(PQueue* q, const KeyValPair new)
     q->n++;
     q->nodes[idx_new] = new;
     q->nodes[idx_new].val->pq_kv_idx = (uint32_t)idx_new; // set the index saved in the vertex struct
-    while(idx_new != 0 && q->keycmp(new.key, q->nodes[_pq_parent(idx_new)].key)) {
+    while(idx_new != 0 && new.key > q->nodes[_pq_parent(idx_new)].key) {
         size_t idx_parent = _pq_parent(idx_new);
         _pq_swap(q, idx_new, idx_parent);
         idx_new = idx_parent;
@@ -232,8 +230,7 @@ void pq_decrease_priority(PQueue* q, Vertex* v, const pq_keytype new_key)
     assert(v->is_in_pq);
 #ifndef NDEBUG
     pq_keytype old_key = q->nodes[v->pq_kv_idx].key; // this variable is only used for asserts
-    assert(!(q->keycmp(new_key, old_key)));
-    assert(q->keycmp(old_key, new_key));
+    assert(old_key > new_key);
 #endif
 
     const size_t idx = v->pq_kv_idx;
