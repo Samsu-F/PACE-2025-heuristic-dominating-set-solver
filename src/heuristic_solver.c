@@ -38,8 +38,6 @@ static void _print_solution(Graph* g, size_t ds_size)
 
 int main(void)
 {
-    srand((unsigned)time(NULL));
-
     Graph* g = graph_parse(stdin);
     if(!g) {
         exit(EXIT_FAILURE);

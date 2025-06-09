@@ -4,8 +4,10 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <signal.h>
+#include <time.h>
 
 #include "assert_allow_float_equal.h"
+#include "fast_random.h"
 
 
 
@@ -43,21 +45,14 @@ static size_t _make_minimal(Graph* g, size_t current_ds_size)
 
 
 
-// returns a random double x, with +0.0 <= x <= 1.0, uniform distribution
-static double _random(void)
-{
-    return rand() / (double)RAND_MAX; // TODO: use a better rng. RAND_MAX is only guaranteed to be at least 32767 and rand() is also not that fast.
-}
-
-
-
 // returns the resulting ds size
-static size_t _remove_randomly_from_ds(Graph* g, double removal_probability, size_t current_ds_size)
+static size_t _remove_randomly_from_ds(Graph* g, double removal_probability, size_t current_ds_size, fast_random_t* rng)
 {
+    const uint64_t rand_threshold = (uint64_t)(removal_probability * (double)FAST_RANDOM_MAX);
     for(size_t i_vertices = 0; i_vertices < g->n; i_vertices++) {
         Vertex* v = g->vertices[i_vertices];
         if(v->is_in_ds) {
-            if((_random() < removal_probability)) {
+            if(fast_random(rng) < rand_threshold) {
                 v->dominated_by_number--;
                 for(uint32_t i_v = 0; i_v < v->degree; i_v++) {
                     v->neighbors[i_v]->dominated_by_number--;
@@ -82,14 +77,15 @@ typedef struct Queue {
 
 // TODO: refactor
 // returns the resulting ds size
-static size_t _local_deconstruction(Graph* g, const size_t current_ds_size)
+static size_t _local_deconstruction(Graph* g, const size_t current_ds_size, fast_random_t* rng)
 {
     for(size_t i_vertices = 0; i_vertices < g->n; i_vertices++) { // inefficient, TODO
         g->vertices[i_vertices]->queued = false;
     }
 
-    size_t start_index = (size_t)(_random() * g->n);
-    start_index = start_index >= g->n ? g->n - 1 : start_index;
+    size_t start_index = (size_t)(((__uint128_t)g->n * (__uint128_t)fast_random(rng)) /
+                                  ((__uint128_t)FAST_RANDOM_MAX + 1));
+    assert(start_index < g->n);
 
     Queue* q_head = calloc(1, sizeof(Queue));
     if(!q_head) {
@@ -254,6 +250,9 @@ size_t iterated_greedy_solver(Graph* g)
     const double removal_probability = 0.05; // can be tweaked // TODO
     _register_sigterm_handler();
     _init_votes(g);
+    fast_random_t rng;
+    fast_random_init(&rng, (uint64_t)time(NULL));
+
     // create two array that are use to save and restore the best solution found so far:
     bool* in_ds = calloc(g->n, sizeof(bool));
     uint32_t* dominated_by_numbers = malloc(g->n * sizeof(uint32_t));
@@ -273,11 +272,11 @@ size_t iterated_greedy_solver(Graph* g)
         // deconstruct solution
         if(ig_iteration % 3 == 0) {
             assert(fprintf(stderr, "local deconstruction \t"));
-            current_ds_size = _local_deconstruction(g, current_ds_size);
+            current_ds_size = _local_deconstruction(g, current_ds_size, &rng);
         }
         else {
             assert(fprintf(stderr, "random deconstruction\t"));
-            current_ds_size = _remove_randomly_from_ds(g, removal_probability, current_ds_size);
+            current_ds_size = _remove_randomly_from_ds(g, removal_probability, current_ds_size, &rng);
         }
         // reconstruct
         current_ds_size = _greedy_vote_construct(g, current_ds_size);
