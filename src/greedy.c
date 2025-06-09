@@ -143,7 +143,7 @@ static size_t _local_deconstruction(Graph* g, const size_t current_ds_size)
 
 
 
-void init_votes(Graph* g)
+static void _init_votes(Graph* g)
 {
     assert(g != NULL);
     for(size_t vertices_idx = 0; vertices_idx < g->n; vertices_idx++) {
@@ -224,10 +224,9 @@ static size_t _greedy_vote_construct(Graph* g, size_t current_ds_size)
 
 
 
-// just temporary, not good
 static void _sigterm_handler(int sig)
 {
-    (void)sig;
+    (void)sig; // supress warning for unused parameter
     _g_sigterm_received = true;
 }
 
@@ -252,9 +251,9 @@ static void _register_sigterm_handler(void)
 // returns the number of vertices in the dominating set.
 size_t iterated_greedy_solver(Graph* g)
 {
-    const double removal_probability = 0.05; // can be tweaked
+    const double removal_probability = 0.05; // can be tweaked // TODO
     _register_sigterm_handler();
-    init_votes(g);
+    _init_votes(g);
     // create two array that are use to save and restore the best solution found so far:
     bool* in_ds = calloc(g->n, sizeof(bool));
     uint32_t* dominated_by_numbers = malloc(g->n * sizeof(uint32_t));
