@@ -4,7 +4,7 @@
 // assert statements in which comparing double or floats with == or != is allowed, without triggering
 // the gcc warning -Wfloat-equals
 
-
+#include <assert.h>
 
 
 #define assert_allow_float_equal(expr)                                                                   \

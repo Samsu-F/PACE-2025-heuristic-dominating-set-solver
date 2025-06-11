@@ -480,7 +480,6 @@ static bool _rule_2_reduce_vertices(Graph* g, Vertex* v, Vertex* w)
     assert(g != NULL && v != NULL && w != NULL);
     assert((!v->is_removed) && (!w->is_removed));
     assert(v != w && v->id != w->id);
-    // assert(v->degree >= 2 && w->degree >= 2);  ///// DEBUG, put it back ///// TODO
 
     // setup
     Vertex** n2 = malloc(2 * (size_t)(v->degree + w->degree) * sizeof(Vertex*)); // block allocation for n2 and n3
@@ -680,9 +679,7 @@ void reduce(Graph* g, float time_budget_total, float time_budget_rule2)
     bool time_remaining_total = true, time_remaining_rule2 = true, time_remaining_redundant = true;
 
     bool another_loop = true;
-    while(another_loop) { // TODO: even on really sparse graphs, very few additional vertices are found when
-        // re-checking everything, so it might not be worth the computation time. But on the other hand, it
-        // does not take much computation time and even small improvements now could be very benefitial later.
+    while(another_loop) {
         another_loop = false;
         uint32_t next_vertices_idx;
         for(uint32_t vertices_idx = 0; vertices_idx < g->n; vertices_idx = next_vertices_idx) {

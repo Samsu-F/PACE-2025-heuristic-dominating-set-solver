@@ -10,7 +10,6 @@
 
 
 
-// WIP
 void reduce(Graph* g, float time_budget_total, float time_budget_rule2);
 
 
