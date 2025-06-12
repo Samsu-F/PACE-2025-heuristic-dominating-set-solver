@@ -144,7 +144,7 @@ static size_t _local_deconstruction(Graph* g, const size_t current_ds_size, fast
     Queue q = {0};
     _enqueue(&q, g->vertices[start_index]);
     size_t count_removed = 0;
-    // size_t ds_vertices_queued = 0;
+    size_t ds_vertices_queued = 0;
     while((!_queue_is_empty(&q)) && count_removed < 25) {
         Vertex* v = _dequeue(&q);
         if(v->is_in_ds) {
@@ -152,13 +152,14 @@ static size_t _local_deconstruction(Graph* g, const size_t current_ds_size, fast
             count_removed++;
         }
         // enqueue neighbors of v if not already enqueued / visited
-        for(uint32_t i_v = 0; i_v < v->degree /* && ds_vertices_queued < 25 */; i_v++) {
+        for(uint32_t i_v = 0; i_v < v->degree && ds_vertices_queued < 25; i_v++) {
             Vertex* u = v->neighbors[i_v];
             if(u->queued != queued_current_marker) {
                 u->queued = queued_current_marker;
                 _enqueue(&q, u);
-                // if(u->is_in_ds)
-                //     ds_vertices_queued++;
+                if(u->is_in_ds) {
+                    ds_vertices_queued++;
+                }
             }
         }
     }
