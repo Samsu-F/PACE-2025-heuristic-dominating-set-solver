@@ -53,6 +53,7 @@ define COMPILE_RULE
 $(TARGET_$(1)): $(OBJS_$(1))
 	@echo Linking $$@
 	$$(QUIET)$$(CC) $$(CFLAGS_$(1)) -o $$@ $$(OBJS_$(1))
+	@printf '\033[1;32mFinished successfully. The compiled executable can be found at %s\033[0m\n' '$$(TARGET_$(1))'
 
 $(DIR_$(1))/obj/%.o: src/%.c | $(DIR_$(1))
 	@echo Compiling $$<
@@ -83,8 +84,8 @@ clean:
 help:
 	@echo "Available targets:"
 	@echo "  make release     - Build release (default)"
-	@echo "  make strict      - Build with pedantic warnings"
-	@echo "  make debug       - Build debug with pedantic warnings and sanitizers"
+	@echo "  make strict      - Build with pedantic compiler warnings"
+	@echo "  make debug       - Build debug with pedantic compiler warnings and sanitizers"
 	@echo "  make clean       - Remove build artifacts"
 	@echo "  make help        - print this help text"
 
