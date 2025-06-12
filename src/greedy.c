@@ -45,21 +45,28 @@ static size_t _make_minimal(Graph* g, size_t current_ds_size)
 
 
 
+// must only be called if v is currently in the ds.
+static inline void _remove_from_ds(Vertex* v)
+{
+    assert(v->is_in_ds);
+    v->dominated_by_number--;
+    for(uint32_t i_v = 0; i_v < v->degree; i_v++) {
+        v->neighbors[i_v]->dominated_by_number--;
+    }
+    v->is_in_ds = false;
+}
+
+
+
 // returns the resulting ds size
-static size_t _remove_randomly_from_ds(Graph* g, double removal_probability, size_t current_ds_size, fast_random_t* rng)
+static size_t _random_deconstruction(Graph* g, double removal_probability, size_t current_ds_size, fast_random_t* rng)
 {
     const uint64_t rand_threshold = (uint64_t)(removal_probability * (double)FAST_RANDOM_MAX);
     for(size_t i_vertices = 0; i_vertices < g->n; i_vertices++) {
         Vertex* v = g->vertices[i_vertices];
-        if(v->is_in_ds) {
-            if(fast_random(rng) < rand_threshold) {
-                v->dominated_by_number--;
-                for(uint32_t i_v = 0; i_v < v->degree; i_v++) {
-                    v->neighbors[i_v]->dominated_by_number--;
-                }
-                v->is_in_ds = false;
-                current_ds_size--;
-            }
+        if(v->is_in_ds && fast_random(rng) < rand_threshold) {
+            _remove_from_ds(v);
+            current_ds_size--;
         }
     }
     return current_ds_size;
@@ -101,11 +108,7 @@ static size_t _local_deconstruction(Graph* g, const size_t current_ds_size, fast
         Vertex* v = q_head->val;
 
         if(v->is_in_ds) {
-            v->dominated_by_number--;
-            for(uint32_t i_v = 0; i_v < v->degree; i_v++) {
-                v->neighbors[i_v]->dominated_by_number--;
-            }
-            v->is_in_ds = false;
+            _remove_from_ds(v);
             count_removed++;
         }
 
@@ -280,7 +283,7 @@ size_t iterated_greedy_solver(Graph* g)
         }
         else {
             assert(fprintf(stderr, "random deconstruction\t"));
-            current_ds_size = _remove_randomly_from_ds(g, removal_probability, current_ds_size, &rng);
+            current_ds_size = _random_deconstruction(g, removal_probability, current_ds_size, &rng);
         }
         // reconstruct
         current_ds_size = _greedy_vote_construct(g, current_ds_size);
