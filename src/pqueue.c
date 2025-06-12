@@ -43,7 +43,7 @@ static inline size_t _pq_rchild(size_t index)
 
 
 
-static void _pq_incr_allocated_n(PQueue* q)
+static inline void _pq_incr_allocated_n(PQueue* q)
 {
     size_t factor = PQ_REALLOC_FACTOR;
     size_t new_n = factor * q->allocated_n;
@@ -61,7 +61,7 @@ static void _pq_incr_allocated_n(PQueue* q)
 
 
 
-static void _pq_decr_allocated_n(PQueue* q)
+static inline void _pq_decr_allocated_n(PQueue* q)
 {
     if(q->allocated_n <= 64) {
         return; // don't even bother
@@ -91,7 +91,7 @@ static inline void _pq_swap(PQueue* const q, const size_t node_a, const size_t n
 
 
 
-static void _pq_heapify_node(PQueue* q, size_t node)
+static inline void _pq_heapify_node(PQueue* q, size_t node)
 {
     const size_t lchild = _pq_lchild(node);
     const size_t rchild = _pq_rchild(node);
@@ -103,21 +103,18 @@ static void _pq_heapify_node(PQueue* q, size_t node)
             _pq_swap(q, node, lchild);
             _pq_heapify_node(q, lchild);
         }
-        return;
     }
     // at this point, both child nodes exist
     else if(q->nodes[lchild].key > q->nodes[rchild].key) { // if lchild's key has greater priority than rchild's key
         if(q->nodes[lchild].key > q->nodes[node].key) {
             _pq_swap(q, node, lchild);
             _pq_heapify_node(q, lchild);
-            return;
         }
     }
     else { // if rchild's key has greater priority than lchild's key
         if(q->nodes[rchild].key > q->nodes[node].key) {
             _pq_swap(q, node, rchild);
             _pq_heapify_node(q, rchild);
-            return;
         }
     }
 }
