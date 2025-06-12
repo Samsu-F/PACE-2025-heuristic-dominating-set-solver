@@ -75,14 +75,61 @@ static size_t _random_deconstruction(Graph* g, double removal_probability, size_
 
 
 // TODO: use more efficient queue implementation specifically adapted for the use case
-typedef struct Queue {
-    struct Queue* next;
+typedef struct QueueElem {
+    struct QueueElem* next;
     Vertex* val;
+} QueueElem;
+
+typedef struct Queue {
+    QueueElem* head;
+    QueueElem* tail;
 } Queue;
 
+static inline bool _queue_is_empty(Queue* q)
+{
+    return q->head == NULL;
+}
+
+static inline void _enqueue(Queue* q, Vertex* new_val)
+{
+    QueueElem* new_q_elem = calloc(1, sizeof(QueueElem));
+    if(!new_q_elem) {
+        perror("enqueue: calloc failed");
+        exit(EXIT_FAILURE);
+    }
+    new_q_elem->val = new_val;
+    if(!_queue_is_empty(q)) {
+        assert(q->tail != NULL);
+        q->tail->next = new_q_elem;
+        q->tail = new_q_elem;
+    }
+    else {
+        q->head = new_q_elem;
+        q->tail = new_q_elem;
+    }
+}
+
+static inline Vertex* _dequeue(Queue* q)
+{
+    assert(!_queue_is_empty(q));
+    Vertex* result = q->head->val;
+    QueueElem* to_free = q->head;
+    q->head = q->head->next;
+    free(to_free);
+    return result;
+}
+
+static inline void _clear_queue(Queue* q)
+{
+    while(!_queue_is_empty(q)) {
+        QueueElem* to_free = q->head;
+        q->head = q->head->next;
+        free(to_free);
+    }
+}
 
 
-// TODO: refactor
+// create a local hole in the ds coverage using breadth-first search
 // returns the resulting ds size
 static size_t _local_deconstruction(Graph* g, const size_t current_ds_size, fast_random_t* rng)
 {
@@ -95,49 +142,28 @@ static size_t _local_deconstruction(Graph* g, const size_t current_ds_size, fast
     size_t start_index = (size_t)(((__uint128_t)g->n * (__uint128_t)fast_random(rng)) / ((__uint128_t)FAST_RANDOM_MAX + 1));
     assert(start_index < g->n);
 
-    Queue* q_head = calloc(1, sizeof(Queue));
-    if(!q_head) {
-        exit(42);
-    }
-    q_head->val = g->vertices[start_index];
-    Queue* q_tail = q_head;
-
+    Queue q = {0};
+    _enqueue(&q, g->vertices[start_index]);
     size_t count_removed = 0;
     // size_t ds_vertices_queued = 0;
-    while(q_head != NULL && count_removed < 25) {
-        Vertex* v = q_head->val;
-
+    while((!_queue_is_empty(&q)) && count_removed < 25) {
+        Vertex* v = _dequeue(&q);
         if(v->is_in_ds) {
             _remove_from_ds(v);
             count_removed++;
         }
-
+        // enqueue neighbors of v if not already enqueued / visited
         for(uint32_t i_v = 0; i_v < v->degree /* && ds_vertices_queued < 25 */; i_v++) {
             Vertex* u = v->neighbors[i_v];
             if(u->queued != queued_current_marker) {
                 u->queued = queued_current_marker;
+                _enqueue(&q, u);
                 // if(u->is_in_ds)
                 //     ds_vertices_queued++;
-                Queue* new_q_elem = calloc(1, sizeof(Queue));
-                if(!new_q_elem)
-                    exit(42);
-                new_q_elem->val = u;
-                q_tail->next = new_q_elem;
-                q_tail = new_q_elem;
             }
         }
-
-        Queue* to_free = q_head;
-        q_head = q_head->next;
-        free(to_free);
     }
-
-    while(q_head != NULL) {
-        Queue* to_free = q_head;
-        q_head = q_head->next;
-        free(to_free);
-    }
-
+    _clear_queue(&q);
     return current_ds_size - count_removed;
 }
 
