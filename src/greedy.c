@@ -79,9 +79,11 @@ typedef struct Queue {
 // returns the resulting ds size
 static size_t _local_deconstruction(Graph* g, const size_t current_ds_size, fast_random_t* rng)
 {
-    for(size_t i_vertices = 0; i_vertices < g->n; i_vertices++) { // inefficient, TODO
-        g->vertices[i_vertices]->queued = false;
-    }
+    static uint32_t queued_current_marker = 0;
+    queued_current_marker++;
+    // the queued field of the vertices is used like a bool. However, to avoid having to reset all
+    // queued fields to false, the next local deconstruction run increments queued_current_marker and
+    // checks the queued fields against a new value.
 
     size_t start_index = (size_t)(((__uint128_t)g->n * (__uint128_t)fast_random(rng)) / ((__uint128_t)FAST_RANDOM_MAX + 1));
     assert(start_index < g->n);
@@ -109,8 +111,8 @@ static size_t _local_deconstruction(Graph* g, const size_t current_ds_size, fast
 
         for(uint32_t i_v = 0; i_v < v->degree /* && ds_vertices_queued < 25 */; i_v++) {
             Vertex* u = v->neighbors[i_v];
-            if(!u->queued) {
-                u->queued = true;
+            if(u->queued != queued_current_marker) {
+                u->queued = queued_current_marker;
                 // if(u->is_in_ds)
                 //     ds_vertices_queued++;
                 Queue* new_q_elem = calloc(1, sizeof(Queue));
