@@ -130,7 +130,7 @@ static inline void _clear_queue(Queue* q)
 
 // create a local hole in the ds coverage using breadth-first search
 // returns the resulting ds size
-static size_t _local_deconstruction(Graph* g, const size_t current_ds_size, fast_random_t* rng)
+static size_t _local_deconstruction(Graph* g, const size_t max_removals, const size_t current_ds_size, fast_random_t* rng)
 {
     static uint32_t queued_current_marker = 0;
     queued_current_marker++;
@@ -145,14 +145,14 @@ static size_t _local_deconstruction(Graph* g, const size_t current_ds_size, fast
     _enqueue(&q, g->vertices[start_index]);
     size_t count_removed = 0;
     size_t ds_vertices_queued = 0;
-    while((!_queue_is_empty(&q)) && count_removed < 25) {
+    while((!_queue_is_empty(&q)) && count_removed < max_removals) {
         Vertex* v = _dequeue(&q);
         if(v->is_in_ds) {
             _remove_from_ds(v);
             count_removed++;
         }
         // enqueue neighbors of v if not already enqueued / visited
-        for(uint32_t i_v = 0; i_v < v->degree && ds_vertices_queued < 25; i_v++) {
+        for(uint32_t i_v = 0; i_v < v->degree && ds_vertices_queued < max_removals; i_v++) {
             Vertex* u = v->neighbors[i_v];
             if(u->queued != queued_current_marker) {
                 u->queued = queued_current_marker;
@@ -280,7 +280,6 @@ static void _register_sigterm_handler(void)
 // returns the number of vertices in the dominating set.
 size_t iterated_greedy_solver(Graph* g)
 {
-    const double removal_probability = 0.05; // can be tweaked // TODO
     _register_sigterm_handler();
     _init_votes(g);
     fast_random_t rng;
@@ -305,11 +304,11 @@ size_t iterated_greedy_solver(Graph* g)
         // deconstruct solution
         if(ig_iteration % 3 == 0) {
             assert(fprintf(stderr, "local deconstruction \t"));
-            current_ds_size = _local_deconstruction(g, current_ds_size, &rng);
+            current_ds_size = _local_deconstruction(g, 25, current_ds_size, &rng); // max removals can be tweaked // TODO
         }
         else {
             assert(fprintf(stderr, "random deconstruction\t"));
-            current_ds_size = _random_deconstruction(g, removal_probability, current_ds_size, &rng);
+            current_ds_size = _random_deconstruction(g, 0.05, current_ds_size, &rng); // removal probability can be tweaked // TODO
         }
         // reconstruct
         current_ds_size = _greedy_vote_construct(g, current_ds_size);
