@@ -74,7 +74,6 @@ static size_t _random_deconstruction(Graph* g, double removal_probability, size_
 
 
 
-// TODO: use more efficient queue implementation specifically adapted for the use case
 typedef struct QueueElem {
     struct QueueElem* next;
     Vertex* val;

@@ -6,7 +6,6 @@
 #include <inttypes.h>
 #include <stdio.h>
 
-#include "pqueue.h"
 #include "dynamic_array.h"
 
 

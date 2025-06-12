@@ -369,7 +369,7 @@ static bool _rule_1_reduce_vertex(Graph* g, Vertex* v)
         }
         return true;
     }
-    if(v->degree == 1) { // handling degree == 1 separately is redundant but might result in a slight speed up. TODO: test
+    if(v->degree == 1) { // handling degree == 1 separately is redundant but result in a speed up for most graphs.
         if(v->dominated_by_number == 0) {
             _fix_vertex_and_mark_removed(g, v->neighbors[0]);
         }
