@@ -275,6 +275,13 @@ static void _register_sigterm_handler(void)
 
 
 
+static inline double _clamp(double x, double min, double max)
+{
+    return (x < min) ? min : (x > max) ? max : x;
+}
+
+
+
 // runs iterated greedy algorithm on the graph until a sigterm signal is received.
 // v->is_in_ds must be set to false for all vertices before calling this function.
 // returns the number of vertices in the dominating set.
@@ -299,19 +306,40 @@ size_t iterated_greedy_solver(Graph* g)
     }
     size_t saved_ds_size = current_ds_size; // the size of the ds saved in dominated_by_numbers and in_ds
 
+
+    // TODO: tweak metaheuristic values
+    const double score_decay_factor = 0.9; // must be >0 and <1
+    const double reward_improvement = 1.0;
+    const double reward_equal = 0.333;      // should be >0 and <reward_improvement
+    const double minimum_probability = 0.1; // the minimal probability for a deconstruction approach to be selected, regardless of how low its score is. Must be >=0 and <=0.5
+    double score_local_decon = 0.0;
+    double score_random_decon = 1.0; // Testing has shown that random deconstruction is better in the beginning
+
     size_t ig_iteration = 0;
     for(; !_g_sigterm_received; ig_iteration++) {
+        double probability_local_decon = score_local_decon / (score_local_decon + score_random_decon + 1.e-10); // the tiny summand prevents division by 0
+        probability_local_decon = _clamp(probability_local_decon, minimum_probability, 1.0 - minimum_probability);
+        assert(fprintf(stderr, "score_local_decon == %.3f\tscore_random_decon == %.3f\tprobability_local_decon == %.3f\t",
+                       score_local_decon, score_random_decon, probability_local_decon));
         // deconstruct solution
-        if(ig_iteration % 3 == 0) {
+        if(fast_random(&rng) < (uint64_t)(probability_local_decon * (double)FAST_RANDOM_MAX)) {
             assert(fprintf(stderr, "local deconstruction \t"));
             current_ds_size = _local_deconstruction(g, 25, current_ds_size, &rng); // max removals can be tweaked // TODO
+            current_ds_size = _greedy_vote_construct(g, current_ds_size);
+            double reward = current_ds_size < saved_ds_size  ? reward_improvement :
+                            current_ds_size == saved_ds_size ? reward_equal :
+                                                               0.0;
+            score_local_decon = score_local_decon * score_decay_factor + reward;
         }
         else {
             assert(fprintf(stderr, "random deconstruction\t"));
             current_ds_size = _random_deconstruction(g, 0.05, current_ds_size, &rng); // removal probability can be tweaked // TODO
+            current_ds_size = _greedy_vote_construct(g, current_ds_size);
+            double reward = current_ds_size < saved_ds_size  ? reward_improvement :
+                            current_ds_size == saved_ds_size ? reward_equal :
+                                                               0.0;
+            score_random_decon = score_random_decon * score_decay_factor + reward;
         }
-        // reconstruct
-        current_ds_size = _greedy_vote_construct(g, current_ds_size);
 
         if(current_ds_size <= saved_ds_size) {
             assert(fprintf(stderr, "%s current_ds_size == %zu\tsaved_ds_size == %zu\t\tig_iteration == %zu\n",
