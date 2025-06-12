@@ -83,8 +83,7 @@ static size_t _local_deconstruction(Graph* g, const size_t current_ds_size, fast
         g->vertices[i_vertices]->queued = false;
     }
 
-    size_t start_index = (size_t)(((__uint128_t)g->n * (__uint128_t)fast_random(rng)) /
-                                  ((__uint128_t)FAST_RANDOM_MAX + 1));
+    size_t start_index = (size_t)(((__uint128_t)g->n * (__uint128_t)fast_random(rng)) / ((__uint128_t)FAST_RANDOM_MAX + 1));
     assert(start_index < g->n);
 
     Queue* q_head = calloc(1, sizeof(Queue));
@@ -230,13 +229,16 @@ static void _sigterm_handler(int sig)
 
 static void _register_sigterm_handler(void)
 {
-    struct sigaction sa;
+    struct sigaction sa = {0};
     sa.sa_handler = _sigterm_handler;
     sigemptyset(&sa.sa_mask);
-    sa.sa_flags = SA_RESTART; // 0 or SA_RESTART if syscalls should be restarted
+    sa.sa_flags = SA_RESTART; // restart interrupted syscalls
     if(sigaction(SIGTERM, &sa, NULL) == -1) {
-        perror("sigaction failed");
+        perror("sigaction failed to register SIGTERM handler");
         exit(EXIT_FAILURE);
+    }
+    if(sigaction(SIGINT, &sa, NULL) == -1) { // also terminate on Ctrl+C
+        // don't care if registering the SIGINT handler fails, it is not necessary but only QOL
     }
 }
 
