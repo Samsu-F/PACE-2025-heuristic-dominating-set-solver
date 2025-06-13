@@ -14,17 +14,20 @@ SANITIZE_FLAGS = -fanalyzer -fsanitize=address -fsanitize=undefined -fsanitize=l
 
 CFLAGS_RELEASE = $(CFLAGS) -O3 -DNDEBUG
 CFLAGS_STRICT  = $(CFLAGS_RELEASE) $(PEDANTIC_FLAGS)
-CFLAGS_DEBUG   = $(CFLAGS) $(PEDANTIC_FLAGS) $(SANITIZE_FLAGS) -O3
+CFLAGS_LOG     = $(CFLAGS_STRICT) -DDEBUG_LOG
+CFLAGS_DEBUG   = $(CFLAGS) $(PEDANTIC_FLAGS) $(SANITIZE_FLAGS) -O3 -DDEBUG_LOG
 
 
 
 BUILD_DIR = build
 DIR_RELEASE = $(BUILD_DIR)/release
 DIR_STRICT  = $(BUILD_DIR)/strict
+DIR_LOG     = $(BUILD_DIR)/log
 DIR_DEBUG   = $(BUILD_DIR)/debug
 
 TARGET_RELEASE = $(DIR_RELEASE)/heuristic_solver
 TARGET_STRICT  = $(DIR_STRICT)/heuristic_solver
+TARGET_LOG     = $(DIR_LOG)/heuristic_solver
 TARGET_DEBUG   = $(DIR_DEBUG)/heuristic_solver
 
 
@@ -32,11 +35,13 @@ TARGET_DEBUG   = $(DIR_DEBUG)/heuristic_solver
 # Object files
 OBJS_RELEASE = $(SRCS:%.c=$(DIR_RELEASE)/obj/%.o)
 OBJS_STRICT  = $(SRCS:%.c=$(DIR_STRICT)/obj/%.o)
+OBJS_LOG     = $(SRCS:%.c=$(DIR_LOG)/obj/%.o)
 OBJS_DEBUG   = $(SRCS:%.c=$(DIR_DEBUG)/obj/%.o)
 
 # Dependency files
 DEPS_RELEASE = $(OBJS_RELEASE:.o=.d)
 DEPS_STRICT  = $(OBJS_STRICT:.o=.d)
+DEPS_LOG     = $(OBJS_LOG:.o=.d)
 DEPS_DEBUG   = $(OBJS_DEBUG:.o=.d)
 
 
@@ -44,6 +49,7 @@ DEPS_DEBUG   = $(OBJS_DEBUG:.o=.d)
 # first target ==> default
 release: $(TARGET_RELEASE)
 strict: $(TARGET_STRICT)
+log: $(TARGET_LOG)
 debug: $(TARGET_DEBUG)
 all: help
 
@@ -62,11 +68,12 @@ endef
 
 $(eval $(call COMPILE_RULE,RELEASE))
 $(eval $(call COMPILE_RULE,STRICT))
+$(eval $(call COMPILE_RULE,LOG))
 $(eval $(call COMPILE_RULE,DEBUG))
 
 
 
-$(DIR_RELEASE) $(DIR_STRICT) $(DIR_DEBUG):
+$(DIR_RELEASE) $(DIR_STRICT) $(DIR_LOG) $(DIR_DEBUG):
 	$(QUIET)mkdir -p $@/obj
 
 
@@ -74,9 +81,11 @@ $(DIR_RELEASE) $(DIR_STRICT) $(DIR_DEBUG):
 clean:
 	$(QUIET)rm -f $(OBJS_RELEASE) $(DEPS_RELEASE) $(TARGET_RELEASE)
 	$(QUIET)rm -f $(OBJS_STRICT)  $(DEPS_STRICT)  $(TARGET_STRICT)
+	$(QUIET)rm -f $(OBJS_LOG)     $(DEPS_LOG)     $(TARGET_LOG)
 	$(QUIET)rm -f $(OBJS_DEBUG)   $(DEPS_DEBUG)   $(TARGET_DEBUG)
 	$(QUIET)rmdir --ignore-fail-on-non-empty $(DIR_RELEASE)/obj $(DIR_RELEASE) 2>/dev/null || true
 	$(QUIET)rmdir --ignore-fail-on-non-empty $(DIR_STRICT)/obj  $(DIR_STRICT)  2>/dev/null || true
+	$(QUIET)rmdir --ignore-fail-on-non-empty $(DIR_LOG)/obj     $(DIR_LOG)     2>/dev/null || true
 	$(QUIET)rmdir --ignore-fail-on-non-empty $(DIR_DEBUG)/obj   $(DIR_DEBUG)   2>/dev/null || true
 	$(QUIET)rmdir --ignore-fail-on-non-empty $(BUILD_DIR) 2>/dev/null || true
 
@@ -85,13 +94,13 @@ help:
 	@echo "Available targets:"
 	@echo "  make release     - Build release (default)"
 	@echo "  make strict      - Build with pedantic compiler warnings"
-	@echo "  make debug       - Build debug with pedantic compiler warnings and sanitizers"
+	@echo "  make log         - Same as strict but enable logging"
+	@echo "  make debug       - Build debug with pedantic compiler warnings, sanitizers, and logging"
 	@echo "  make clean       - Remove build artifacts"
 	@echo "  make help        - print this help text"
 
 
-
 # Include auto-generated dependency files
--include $(DEPS_RELEASE) $(DEPS_STRICT) $(DEPS_DEBUG)
+-include $(DEPS_RELEASE) $(DEPS_STRICT) $(DEPS_LOG) $(DEPS_DEBUG)
 
-.PHONY: release strict debug clean help all
+.PHONY: release strict log debug clean help all

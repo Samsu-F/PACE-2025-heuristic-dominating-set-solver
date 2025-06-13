@@ -6,6 +6,8 @@
 #include <time.h>
 #include <stdio.h>
 
+#include "debug_log.h"
+
 
 
 // removes all edges of v in both directions, and frees the then empty neighbors array of v
@@ -320,7 +322,7 @@ static bool _is_in_n2_rule1(const uint32_t v_id, const Vertex* const u)
     }
     for(uint32_t i = 0; i < u->degree; i++) {
         if(u->neighbors[i]->neighbor_tag == v_id) { // if u has any neighbor that is in N1
-            assert(u->neighbors[i]->id != v_id); // assert the N1 neighbor found is in fact not v itself
+            assert(u->neighbors[i]->id != v_id);    // assert the N1 neighbor found is in fact not v itself
             return true;
         }
     }
@@ -574,28 +576,27 @@ static bool _rule_2_reduce_vertices(Graph* g, Vertex* v, Vertex* w)
         bool fix_w = false;
         if(v_alone_dominates_n3 && w_alone_dominates_n3) { // case 1.1 of the paper
             // TODO: test if it is worth it to do anything here
-            assert(fprintf(stderr, "rule 2 case 1.1 found, v->id == %" PRIu32 ",\tw->id == %" PRIu32 "\t==> do nothing\t\tcount_n2 == %zu, count_n3 == %zu\n",
-                           v->id, w->id, count_n2, count_n3));
+            debug_log("rule 2 case 1.1 found, v->id == %" PRIu32 ",\tw->id == %" PRIu32
+                      "\t==> do nothing\t\tcount_n2 == %zu, count_n3 == %zu\n",
+                      v->id, w->id, count_n2, count_n3);
         }
         else if(v_alone_dominates_n3) { // case 1.2
             assert(!w_alone_dominates_n3);
-            assert(fprintf(stderr, "rule 2 case 1.2 found, v->id == %" PRIu32 ",\tw->id == %" PRIu32 "\t==> fix v\n",
-                           v->id, w->id));
+            debug_log("rule 2 case 1.2 found, v->id == %" PRIu32 ",\tw->id == %" PRIu32 "\t==> fix v\n", v->id, w->id);
             remove_n3 = true;
             remove_n2_v = true;
             fix_v = true;
         }
         else if(w_alone_dominates_n3) { // case 1.3
-            assert(fprintf(stderr, "rule 2 case 1.3 found, v->id == %" PRIu32 ",\tw->id == %" PRIu32 "\t==> fix w\n",
-                           v->id, w->id));
+            debug_log("rule 2 case 1.3 found, v->id == %" PRIu32 ",\tw->id == %" PRIu32 "\t==> fix w\n", v->id, w->id);
             assert(!v_alone_dominates_n3);
             remove_n3 = true;
             remove_n2_w = true;
             fix_w = true;
         }
         else { // case 2: neither v alone nor w alone dominates N3
-            assert(fprintf(stderr, "rule 2 case 2 found, v->id == %" PRIu32 ",\tw->id == %" PRIu32 "\t==> fix v and w\n",
-                           v->id, w->id));
+            debug_log("rule 2 case 2 found, v->id == %" PRIu32 ",\tw->id == %" PRIu32 "\t==> fix v and w\n",
+                      v->id, w->id);
             assert((!v_alone_dominates_n3) && (!w_alone_dominates_n3));
             remove_n3 = true;
             remove_n2_v = true;
