@@ -11,7 +11,7 @@ SRCS = graph.c reduction.c pqueue.c greedy.c dynamic_array.c heuristic_solver.c
 CFLAGS = -std=c17 -D_XOPEN_SOURCE=700 -W -Wall -Wextra -MMD -MP
 PEDANTIC_FLAGS = -Werror -Wpedantic -Wshadow -Wcast-qual -Wstrict-prototypes -Wmissing-prototypes -Wswitch-default -Wcast-align=strict -Wbad-function-cast -Wstrict-overflow=4 -Winline -Wundef -Wnested-externs -Wunreachable-code -Wlogical-op -Wfloat-equal -Wredundant-decls -Wold-style-definition -Wwrite-strings -Wformat=2 -Wconversion -Wno-error=unused-parameter -Wno-error=inline -Wno-error=unreachable-code -Wno-error=unused-function -Wno-error=unused-variable -Wno-error=missing-prototypes
 SANITIZE_FLAGS = -fanalyzer -fsanitize=address -fsanitize=undefined -fsanitize=leak -fsanitize=integer-divide-by-zero -fsanitize=null -fsanitize=signed-integer-overflow -fsanitize=bounds-strict -fsanitize=alignment -fsanitize=object-size -g
-OPTIMIZATION_FLAGS = -Ofast -fno-signed-zeros
+OPTIMIZATION_FLAGS = -Ofast -fno-signed-zeros -fipa-pta -fipa-reorder-for-locality
 
 CFLAGS_RELEASE = $(CFLAGS) $(OPTIMIZATION_FLAGS) -DNDEBUG
 CFLAGS_STRICT  = $(CFLAGS) $(OPTIMIZATION_FLAGS) -DNDEBUG $(PEDANTIC_FLAGS)
