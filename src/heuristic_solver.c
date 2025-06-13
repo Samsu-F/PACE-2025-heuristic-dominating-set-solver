@@ -7,6 +7,7 @@
 #include "graph.h"
 #include "reduction.h"
 #include "greedy.h"
+#include "debug_log.h"
 
 
 
@@ -43,7 +44,10 @@ int main(void)
         exit(EXIT_FAILURE);
     }
 
+    debug_log("starting reduction with g->n == %" PRIu32 ", g->m == %" PRIu32 "\n", g->n, g->m);
     reduce(g, 15.0, 10.0);
+    debug_log("finished reduction with g->n == %" PRIu32 ", g->m == %" PRIu32 ", g->fixed.size == %zu\n",
+              g->n, g->m, g->fixed.size);
 
     if(g->n <= 3) {
         if(g->n != 0) { // although extremely unlikely, it is possible that the whole graph can be reduced but the time budget ran out just before the last reduction step
