@@ -311,7 +311,7 @@ size_t iterated_greedy_solver(Graph* g)
     // TODO: tweak metaheuristic values
     const double score_decay_factor = 0.9; // must be >0 and <1
     const double reward_improvement = 1.0;
-    const double reward_equal = 0.333;      // should be >0 and <reward_improvement
+    const double reward_equal = 0.0;      // should be >=0 and <=reward_improvement
     const double minimum_probability = 0.1; // the minimal probability for a deconstruction approach to be selected, regardless of how low its score is. Must be >=0 and <=0.5
     double score_local_decon = 0.0;
     double score_random_decon = 1.0; // Testing has shown that random deconstruction is better in the beginning
@@ -320,7 +320,7 @@ size_t iterated_greedy_solver(Graph* g)
     for(; !_g_sigterm_received; ig_iteration++) {
         double probability_local_decon = score_local_decon / (score_local_decon + score_random_decon + 1.e-10); // the tiny summand prevents division by 0
         probability_local_decon = _clamp(probability_local_decon, minimum_probability, 1.0 - minimum_probability);
-        debug_log("score_local_decon == %.3f\tscore_random_decon == %.3f\tprobability_local_decon == %.3f\t",
+        debug_log("score_local_decon == %.6f  score_random_decon == %.6f  probability_local_decon == %.6f\t",
                        score_local_decon, score_random_decon, probability_local_decon);
         // deconstruct solution
         if(fast_random(&rng) < (uint64_t)(probability_local_decon * (double)FAST_RANDOM_MAX)) {
