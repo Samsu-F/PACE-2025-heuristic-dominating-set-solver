@@ -311,7 +311,7 @@ size_t iterated_greedy_solver(Graph* g)
     // TODO: tweak metaheuristic values
     const double score_decay_factor = 0.9; // must be >0 and <1
     const double reward_improvement = 1.0;
-    const double reward_equal = 0.0;      // should be >=0 and <=reward_improvement
+    const double reward_equal = 0.0;        // should be >=0 and <=reward_improvement
     const double minimum_probability = 0.2; // the minimal probability for a deconstruction approach to be selected, regardless of how low its score is. Must be >=0 and <=0.5
     double score_local_decon = 0.0;
     double score_random_decon = 1.0; // Testing has shown that random deconstruction is better in the beginning
@@ -321,7 +321,7 @@ size_t iterated_greedy_solver(Graph* g)
         double probability_local_decon = score_local_decon / (score_local_decon + score_random_decon + 1.e-10); // the tiny summand prevents division by 0
         probability_local_decon = _clamp(probability_local_decon, minimum_probability, 1.0 - minimum_probability);
         debug_log("score_local_decon == %.6f  score_random_decon == %.6f  probability_local_decon == %.6f\t",
-                       score_local_decon, score_random_decon, probability_local_decon);
+                  score_local_decon, score_random_decon, probability_local_decon);
         // deconstruct solution
         if(fast_random(&rng) < (uint64_t)(probability_local_decon * (double)FAST_RANDOM_MAX)) {
             debug_log("local deconstruction \t");
@@ -334,7 +334,7 @@ size_t iterated_greedy_solver(Graph* g)
         }
         else {
             debug_log("random deconstruction\t");
-            current_ds_size = _random_deconstruction(g, 0.05, current_ds_size, &rng); // removal probability can be tweaked // TODO
+            current_ds_size = _random_deconstruction(g, 0.006, current_ds_size, &rng); // removal probability can be tweaked // TODO
             current_ds_size = _greedy_vote_construct(g, current_ds_size);
             double reward = current_ds_size < saved_ds_size  ? reward_improvement :
                             current_ds_size == saved_ds_size ? reward_equal :
@@ -344,8 +344,8 @@ size_t iterated_greedy_solver(Graph* g)
 
         if(current_ds_size <= saved_ds_size) {
             debug_log("%s current_ds_size == %zu\tsaved_ds_size == %zu\t\tig_iteration == %zu\n",
-                           current_ds_size < saved_ds_size ? "IMPROVEMENT:" : "EQUAL: =    ", current_ds_size,
-                           saved_ds_size, ig_iteration);
+                      current_ds_size < saved_ds_size ? "IMPROVEMENT:" : "EQUAL: =    ", current_ds_size,
+                      saved_ds_size, ig_iteration);
             for(uint32_t i = 0; i < g->n; i++) { // save the current solution
                 dominated_by_numbers[i] = g->vertices[i]->dominated_by_number;
                 in_ds[i] = g->vertices[i]->is_in_ds;
@@ -354,7 +354,7 @@ size_t iterated_greedy_solver(Graph* g)
         }
         else { // restore saved solution
             debug_log("worse:       current_ds_size == %zu\tsaved_ds_size == %zu\t\tig_iteration == %zu\n",
-                           current_ds_size, saved_ds_size, ig_iteration);
+                      current_ds_size, saved_ds_size, ig_iteration);
             for(uint32_t i = 0; i < g->n; i++) {
                 g->vertices[i]->dominated_by_number = dominated_by_numbers[i];
                 g->vertices[i]->is_in_ds = in_ds[i];
@@ -362,8 +362,8 @@ size_t iterated_greedy_solver(Graph* g)
             current_ds_size = saved_ds_size;
         }
     }
-    fprintf(stderr, "g_sigterm_received == %d\t\tfinal ds size == %zu   \tgreedy iterations == %zu\n",
-            _g_sigterm_received, current_ds_size, ig_iteration);
+    fprintf(stderr, "g_sigterm_received == %d\t\tfinal ds size == %zu\t\tds + fixed == %zu\t\tgreedy iterations == %zu\n",
+            _g_sigterm_received, current_ds_size, current_ds_size + g->fixed.size, ig_iteration);
     fflush(stderr);
 
     free(in_ds);

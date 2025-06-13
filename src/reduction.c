@@ -575,7 +575,8 @@ static bool _rule_2_reduce_vertices(Graph* g, Vertex* v, Vertex* w)
         bool fix_v = false;
         bool fix_w = false;
         if(v_alone_dominates_n3 && w_alone_dominates_n3) { // case 1.1 of the paper
-            // TODO: test if it is worth it to do anything here
+            // I don't think there is a way to reduce this case which is not a computational burden to the greedy algo later while
+            // also being a safe, optimal reduction which is efficient to calculate.
             debug_log("rule 2 case 1.1 found, v->id == %" PRIu32 ",\tw->id == %" PRIu32
                       "\t==> do nothing\t\tcount_n2 == %zu, count_n3 == %zu\n",
                       v->id, w->id, count_n2, count_n3);
@@ -716,7 +717,7 @@ void reduce(Graph* g, float time_budget_total, float time_budget_rule2)
             }
 
             if(time_remaining_rule2) {
-                // TODO: I think this is inefficient but every other way of doing it that I have tried so far was slower
+                // I think this is inefficient but every other way of doing it that I have tried so far was slower in practice
                 for(uint32_t i = 0; (!v->is_removed) && i < v->degree;) {
                     Vertex* u1 = v->neighbors[i++];
                     assert(!u1->is_removed);
