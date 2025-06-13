@@ -8,14 +8,15 @@ SRCS = graph.c reduction.c pqueue.c greedy.c dynamic_array.c heuristic_solver.c
 
 
 # Compiler flags
-CFLAGS = --std=c17 -D_XOPEN_SOURCE=700 -W -Wall -Wextra -MMD -MP
+CFLAGS = -std=c17 -D_XOPEN_SOURCE=700 -W -Wall -Wextra -MMD -MP
 PEDANTIC_FLAGS = -Werror -Wpedantic -Wshadow -Wcast-qual -Wstrict-prototypes -Wmissing-prototypes -Wswitch-default -Wcast-align=strict -Wbad-function-cast -Wstrict-overflow=4 -Winline -Wundef -Wnested-externs -Wunreachable-code -Wlogical-op -Wfloat-equal -Wredundant-decls -Wold-style-definition -Wwrite-strings -Wformat=2 -Wconversion -Wno-error=unused-parameter -Wno-error=inline -Wno-error=unreachable-code -Wno-error=unused-function -Wno-error=unused-variable -Wno-error=missing-prototypes
 SANITIZE_FLAGS = -fanalyzer -fsanitize=address -fsanitize=undefined -fsanitize=leak -fsanitize=integer-divide-by-zero -fsanitize=null -fsanitize=signed-integer-overflow -fsanitize=bounds-strict -fsanitize=alignment -fsanitize=object-size -g
+OPTIMIZATION_FLAGS = -Ofast -fno-signed-zeros
 
-CFLAGS_RELEASE = $(CFLAGS) -O3 -DNDEBUG
-CFLAGS_STRICT  = $(CFLAGS_RELEASE) $(PEDANTIC_FLAGS)
-CFLAGS_LOG     = $(CFLAGS_STRICT) -DDEBUG_LOG
-CFLAGS_DEBUG   = $(CFLAGS) $(PEDANTIC_FLAGS) $(SANITIZE_FLAGS) -O3 -DDEBUG_LOG
+CFLAGS_RELEASE = $(CFLAGS) $(OPTIMIZATION_FLAGS) -DNDEBUG
+CFLAGS_STRICT  = $(CFLAGS) $(OPTIMIZATION_FLAGS) -DNDEBUG $(PEDANTIC_FLAGS)
+CFLAGS_LOG     = $(CFLAGS) $(OPTIMIZATION_FLAGS) -DNDEBUG $(PEDANTIC_FLAGS) -DDEBUG_LOG
+CFLAGS_DEBUG   = $(CFLAGS) $(OPTIMIZATION_FLAGS) $(PEDANTIC_FLAGS) $(SANITIZE_FLAGS) -DDEBUG_LOG
 
 
 
@@ -95,7 +96,7 @@ help:
 	@echo "  make release     - Build release (default)"
 	@echo "  make strict      - Build with pedantic compiler warnings"
 	@echo "  make log         - Same as strict but enable logging"
-	@echo "  make debug       - Build debug with pedantic compiler warnings, sanitizers, and logging"
+	@echo "  make debug       - Build debug with pedantic compiler warnings, assertions, sanitizers, and logging"
 	@echo "  make clean       - Remove build artifacts"
 	@echo "  make help        - print this help text"
 
