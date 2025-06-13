@@ -312,7 +312,7 @@ size_t iterated_greedy_solver(Graph* g)
     const double score_decay_factor = 0.9; // must be >0 and <1
     const double reward_improvement = 1.0;
     const double reward_equal = 0.0;      // should be >=0 and <=reward_improvement
-    const double minimum_probability = 0.1; // the minimal probability for a deconstruction approach to be selected, regardless of how low its score is. Must be >=0 and <=0.5
+    const double minimum_probability = 0.2; // the minimal probability for a deconstruction approach to be selected, regardless of how low its score is. Must be >=0 and <=0.5
     double score_local_decon = 0.0;
     double score_random_decon = 1.0; // Testing has shown that random deconstruction is better in the beginning
 
