@@ -325,7 +325,7 @@ size_t iterated_greedy_solver(Graph* g)
         // deconstruct solution
         if(fast_random(&rng) < (uint64_t)(probability_local_decon * (double)FAST_RANDOM_MAX)) {
             debug_log("local deconstruction \t");
-            current_ds_size = _local_deconstruction(g, 25, current_ds_size, &rng); // max removals can be tweaked // TODO
+            current_ds_size = _local_deconstruction(g, 40, current_ds_size, &rng); // max removals can be tweaked // TODO
             current_ds_size = _greedy_vote_construct(g, current_ds_size);
             double reward = current_ds_size < saved_ds_size  ? reward_improvement :
                             current_ds_size == saved_ds_size ? reward_equal :
