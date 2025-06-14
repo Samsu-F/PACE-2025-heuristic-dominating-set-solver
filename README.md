@@ -1,4 +1,5 @@
-# Heuristic Solver for the [PACE Challenge 2025 - Dominating Set Heuristic Track](https://pacechallenge.org/2025/ds/)
+# Heuristic Dominating Set Solver - PACE 2025
+Submission for the [PACE Challenge 2025 - Dominating Set Heuristic Track](https://pacechallenge.org/2025/ds/) by Samuel Füßinger.
 
 ## Installation guide
 Install Make and GCC if not already present, then simply run
