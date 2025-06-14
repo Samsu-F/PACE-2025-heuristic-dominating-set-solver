@@ -45,7 +45,7 @@ int main(void)
     }
 
     debug_log("starting reduction with g->n == %" PRIu32 ", g->m == %" PRIu32 "\n", g->n, g->m);
-    reduce(g, 15.0, 10.0);
+    reduce(g, 13.0, 7.5); // 7.5 seconds to try all reduction rules including rule 2, then 5.5 more seconds to try rule 1 reductions
     debug_log("finished reduction with g->n == %" PRIu32 ", g->m == %" PRIu32 ", g->fixed.size == %zu\n",
               g->n, g->m, g->fixed.size);
 
